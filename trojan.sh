@@ -3,12 +3,39 @@ if [[ $(id -u) != 0 ]]; then
     echo Please run this script as root.
     exit 1
 fi
+
+if [[ -f /etc/init.d/aegis ]] || [[ -f /etc/systemd/system/aliyun.service ]]; then
+systemctl stop aegis || true
+systemctl disable aegis || true
+rm -rf /etc/init.d/aegis || true
+systemctl stop aliyun || true
+systemctl disable aliyun || true
+systemctl stop cloud-config || true
+systemctl disable cloud-config || true
+systemctl stop cloud-final || true
+systemctl disable cloud-final || true
+systemctl stop cloud-init-local.service || true
+systemctl disable cloud-init-local.service || true
+systemctl stop cloud-init || true
+systemctl disable cloud-init || true
+systemctl stop exim4 || true
+systemctl disable exim4 || true
+systemctl stop apparmor || true
+systemctl disable apparmor || true
+rm -rf /etc/systemd/system/aliyun.service || true
+rm -rf /lib/systemd/system/cloud-config.service || true
+rm -rf /lib/systemd/system/cloud-config.target || true
+rm -rf /lib/systemd/system/cloud-final.service || true
+rm -rf /lib/systemd/system/cloud-init-local.service || true
+rm -rf /lib/systemd/system/cloud-init.service || true
+systemctl daemon-reload || true
+fi
 #######color code############
 ERROR="31m"      # Error message
 SUCCESS="32m"    # Success message
 WARNING="33m"   # Warning message
-INFO="93m"     # Info message
-LINK="95m"     # Share Link Message
+INFO="36m"     # Info message
+LINK="92m"     # Share Link Message
 #############################
 function prompt() {
     while true; do
@@ -16,16 +43,6 @@ function prompt() {
         case $yn in
             [Yy] ) return 0;;
             [Nn]|"" ) return 1;;
-        esac
-    done
-}
-############################
-function promp() {
-    while true; do
-        read -p "$1 [y/N] " yn
-        case $yn in
-            [Yy]|"" ) return 0;;
-            [Nn] ) return 1;;
         esac
     done
 }
@@ -40,7 +57,7 @@ isresolved(){
     then
         myip=$2
     else
-        myip=`curl http://dynamicdns.park-your-domain.com/getip`
+        myip=`curl --silent http://dynamicdns.park-your-domain.com/getip`
     fi
     ips=(`nslookup $1 1.1.1.1 | grep -v 1.1.1.1 | grep Address | cut -d " " -f 2`)
     for ip in "${ips[@]}"
@@ -67,11 +84,11 @@ colorEcho ${INFO} "It\'s nice to meet you $domain"
 colorEcho ${WARNING} "Please Enter your desired password1 and press [ENTER]: "
 read password1
   if [[ -z "$password1" ]]; then
-    colorEcho ${ERROR} "INPUT ERROR! Please Enter your os password1 again and press [ENTER]: "
+    colorEcho ${ERROR} "INPUT ERROR! Please Enter your password1 again and press [ENTER]: "
     read password1
   fi
 colorEcho ${INFO} "Your password1 is $password1"
-colorEcho ${WARNING} "Please Enter your desired password2 and press [ENTER]: "
+colorEcho ${WARNING} "Please Enter your password2 and press [ENTER]: "
 read password2
   if [[ -z "$password2" ]]; then
     colorEcho ${ERROR} "INPUT ERROR! Please Enter your password2 again and press [ENTER]: "
@@ -115,8 +132,8 @@ set -e
 }
 ###############Update system################
 updatesystem(){
-	if [[ $dist = centos ]]; then
-    yum update -qq
+  if [[ $dist = centos ]]; then
+    yum update -y
  elif [[ $dist = ubuntu ]]; then
     apt-get update -qq
  elif [[ $dist = debian ]]; then
@@ -129,8 +146,8 @@ updatesystem(){
 }
 ##############Upgrade system optional########
 upgradesystem(){
-	if [[ $dist = centos ]]; then
-    yum upgrade -q -y
+  if [[ $dist = centos ]]; then
+    yum upgrade -y
  elif [[ $dist = ubuntu ]]; then
     export UBUNTU_FRONTEND=noninteractive 
     apt-get upgrade -q -y
@@ -150,21 +167,64 @@ openfirewall(){
   iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
   iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
   iptables -I OUTPUT -j ACCEPT
+  ip6tables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
+  ip6tables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+  ip6tables -I OUTPUT -j ACCEPT
+    if [[ $dist = centos ]]; then
+        setenforce 0 || true
+          cat > '/etc/selinux/config' << EOF
+# This file controls the state of SELinux on the system.
+# SELINUX= can take one of these three values:
+#     enforcing - SELinux security policy is enforced.
+#     permissive - SELinux prints warnings instead of enforcing.
+#     disabled - No SELinux policy is loaded.
+SELINUX=disabled
+# SELINUXTYPE= can take one of these three values:
+#     targeted - Targeted processes are protected,
+#     minimum - Modification of targeted policy. Only selected processes are protected. 
+#     mls - Multi Level Security protection.
+SELINUXTYPE=targeted
+EOF
+    firewall-cmd --zone=public --add-port=80/tcp --permanent || true
+    firewall-cmd --zone=public --add-port=443/tcp --permanent || true
+    systemctl stop firewalld || true
+    systemctl disable firewalld || true
+    yum install -y iptables-services || true
+    systemctl enable iptables || true
+    systemctl enable ip6tables || true
+    sudo /usr/libexec/iptables/iptables.init save || true
+    systemctl start iptables.service || true
+ elif [[ $dist = ubuntu ]]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get install iptables-persistent -q -y > /dev/null
+ elif [[ $dist = debian ]]; then
+    export DEBIAN_FRONTEND=noninteractive 
+    apt-get install iptables-persistent -q -y > /dev/null
+ else
+  clear
+    colorEcho ${ERROR} "error can't install iptables-persistent"
+    exit 1;
+ fi
 }
 ##########install dependencies#############
 installdependency(){
-	echo "installing trojan-gfw nginx and acme"
-	if [[ $dist = centos ]]; then
-    yum install sudo curl socat xz-utils wget apt-transport-https gnupg gnupg2 dnsutils lsb-release python3-qrcode python-pil unzip resolvconf -qq -y
+  echo "installing trojan-gfw nginx and acme"
+  if [[ $dist = centos ]]; then
+    yum install -y sudo curl socat wget gnupg gnupg2 python3-qrcode unzip bind-utils epel-release chrony systemd
  elif [[ $dist = ubuntu ]]; then
-    apt-get install sudo curl socat xz-utils wget apt-transport-https gnupg gnupg2 dnsutils lsb-release python-pil unzip resolvconf -qq -y
-    if [[ $(lsb_release -cs) == xenial ]]; then
+    apt-get install sudo curl socat xz-utils wget apt-transport-https gnupg gnupg2 dnsutils lsb-release python-pil unzip resolvconf ntpdate systemd dbus -qq -y
+    if [[ $(lsb_release -cs) == xenial ]] || [[ $(lsb_release -cs) == trusty ]]; then
       colorEcho ${ERROR} "Ubuntu 16.04 does not support python3-qrcode,Skipping generating QR code!"
       else
         apt-get install python3-qrcode -qq -y
     fi
  elif [[ $dist = debian ]]; then
-    apt-get install sudo curl socat xz-utils wget apt-transport-https gnupg gnupg2 dnsutils lsb-release python3-qrcode python-pil unzip resolvconf -qq -y
+    apt-get install sudo curl socat xz-utils wget apt-transport-https gnupg gnupg2 dnsutils lsb-release python-pil unzip resolvconf ntpdate systemd dbus -qq -y
+    if [[ $(lsb_release -cs) == jessie ]]; then
+      colorEcho ${ERROR} "Debian8 does not support python3-qrcode,Skipping generating QR code!"
+      else
+        apt-get install python3-qrcode -qq -y
+    fi
  else
   clear
     colorEcho ${ERROR} "error can't install dependency"
@@ -173,41 +233,101 @@ installdependency(){
 }
 ###install trojan-gfw from offical bash####
 installtrojan-gfw(){
-	bash -c "$(wget -O- https://raw.githubusercontent.com/trojan-gfw/trojan-quickstart/master/trojan-quickstart.sh)"
+  bash -c "$(wget -O- https://raw.githubusercontent.com/trojan-gfw/trojan-quickstart/master/trojan-quickstart.sh)"
+  cp /etc/systemd/system/trojan.service /etc/systemd/system/trojan6.service
+      cat > '/etc/systemd/system/trojan6.service' << EOF
+[Unit]
+Description=trojan
+Documentation=https://trojan-gfw.github.io/trojan/config https://trojan-gfw.github.io/trojan/
+After=network.target network-online.target nss-lookup.target mysql.service mariadb.service mysqld.service
+
+[Service]
+Type=simple
+StandardError=journal
+ExecStart="/usr/local/bin/trojan" "/usr/local/etc/trojan/config6.json"
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
 }
 ##########nginx install for cnetos#########
 nginxyum(){
-	yum install nginx -q -y > /dev/null
+  yum install nginx -y
+  rm -rf /etc/nginx/nginx.conf
+  touch /etc/nginx/nginx.conf
+    cat > '/etc/nginx/nginx.conf' << EOF
+user nginx;
+worker_processes auto;
+
+error_log /var/log/nginx/error.log warn;
+#pid /var/run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+events {
+  worker_connections 1024;
+  use epoll;
+  multi_accept on;
+}
+
+http {
+  #aio threads;
+  charset UTF-8;
+  tcp_nodelay on;
+  tcp_nopush on;
+  server_tokens off;
+
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  access_log /var/log/nginx/access.log;
+
+
+  log_format  main  '\$remote_addr - \$remote_user [$time_local] "\$request" '
+    '\$status $body_bytes_sent "\$http_referer" '
+    '"\$http_user_agent" "\$http_x_forwarded_for"';
+
+  sendfile on;
+  gzip on;
+  gzip_comp_level 4;
+
+  include /etc/nginx/conf.d/*.conf; 
+}
+EOF
 }
 ##########nginx install for debian################
 nginxapt(){
-	wget https://nginx.org/keys/nginx_signing.key -q
-	apt-key add nginx_signing.key
+  wget https://nginx.org/keys/nginx_signing.key -q
+  apt-key add nginx_signing.key
   rm -rf nginx_signing.key
   touch /etc/apt/sources.list.d/nginx.list
   cat > '/etc/apt/sources.list.d/nginx.list' << EOF
 deb https://nginx.org/packages/mainline/debian/ $(lsb_release -cs) nginx
 deb-src https://nginx.org/packages/mainline/debian/ $(lsb_release -cs) nginx
 EOF
-	apt-get update -qq
-	apt-get install nginx -q -y
+  apt-get remove nginx-common -qq -y
+  apt-get update -qq
+  apt-get install nginx -q -y
 }
 ##########nginx install for ubuntu###############
 nginxubuntu(){
-	wget https://nginx.org/keys/nginx_signing.key -q
-	apt-key add nginx_signing.key
+  wget https://nginx.org/keys/nginx_signing.key -q
+  apt-key add nginx_signing.key
   rm -rf nginx_signing.key
   touch /etc/apt/sources.list.d/nginx.list
   cat > '/etc/apt/sources.list.d/nginx.list' << EOF
 deb https://nginx.org/packages/mainline/ubuntu/ $(lsb_release -cs) nginx
 deb-src https://nginx.org/packages/mainline/ubuntu/ $(lsb_release -cs) nginx
 EOF
-	apt-get update -qq
-	apt-get install nginx -q -y
+  apt-get remove nginx-common -qq -y
+  apt-get update -qq
+  apt-get install nginx -q -y
 }
 ############install nginx########################
 installnginx(){
-	if [[ $dist = centos ]]; then
+  if [[ $dist = centos ]]; then
     nginxyum
  elif [[ $dist = ubuntu ]]; then
     nginxubuntu
@@ -221,32 +341,48 @@ installnginx(){
 }
 #############install acme#####################
 installacme(){
-	curl https://get.acme.sh | sh
+  curl -s https://get.acme.sh | sh
   sudo ~/.acme.sh/acme.sh --upgrade --auto-upgrade > /dev/null
   rm -rf /etc/trojan/
-	mkdir /etc/trojan/
+  mkdir /etc/trojan/
 }
 ##################################################
 issuecert(){
+  if [[ -f /etc/trojan/trojan.crt ]]; then
+    :
+    else
+  mkdir /etc/trojan/ &
+  rm -rf /etc/nginx/sites-available/* &
+  rm -rf /etc/nginx/sites-enabled/* &
+  rm -rf /etc/nginx/conf.d/* || true
+  touch /etc/nginx/conf.d/default.conf
+    cat > '/etc/nginx/conf.d/default.conf' << EOF
+server {
+    listen       80;
+    server_name  $domain;
+    root   /usr/share/nginx/html;
+}
+EOF
   systemctl start nginx
-	sudo ~/.acme.sh/acme.sh --issue -d $domain --webroot /usr/share/nginx/html/ -k ec-256 --log
-  #sudo ~/.acme.sh/acme.sh --issue --nginx /etc/nginx/conf.d/trojan.conf -d $domain -k ec-256 --log
+  sudo ~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --log --reloadcmd "systemctl restart trojan && systemctl restart trojan6"
+  sudo ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /etc/trojan/trojan.crt --keypath /etc/trojan/trojan.key --ecc
+  fi
 }
 ##################################################
 renewcert(){
-  sudo ~/.acme.sh/acme.sh --issue -d $domain --webroot /usr/share/nginx/html/ -k ec-256 --force --log
-  #sudo ~/.acme.sh/acme.sh --issue --nginx /etc/nginx/conf.d/trojan.conf -d $domain -k ec-256 --log
-}
-##################################################
-installcert(){
-	sudo ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /etc/trojan/trojan.crt --keypath /etc/trojan/trojan.key --ecc
+  sudo ~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --log --reloadcmd "systemctl restart trojan && systemctl restart trojan6"
 }
 ##################################################
 installkey(){
-	chmod +r /etc/trojan/trojan.key
+  chmod +r /etc/trojan/trojan.key
 }
 ##################################################
 changepasswd(){
+  if [[ -f /etc/trojan/trojan.pem ]]; then
+    :
+    else
+      openssl dhparam -out /etc/trojan/trojan.pem 2048
+  fi
   cat > '/usr/local/etc/trojan/config.json' << EOF
 {
     "run_type": "server",
@@ -255,30 +391,32 @@ changepasswd(){
     "remote_addr": "127.0.0.1",
     "remote_port": 80,
     "password": [
-        "password1",
-        "password2"
+        "$password1",
+        "$password2"
     ],
     "log_level": 1,
     "ssl": {
         "cert": "/etc/trojan/trojan.crt",
         "key": "/etc/trojan/trojan.key",
         "key_password": "",
-        "cipher": "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256",
+        "cipher": "TLS_AES_128_GCM_SHA256",
+  "cipher_tls13":"TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
         "prefer_server_cipher": true,
         "alpn": [
             "http/1.1"
         ],
         "reuse_session": true,
-        "session_ticket": false,
+        "session_ticket": true,
         "session_timeout": 600,
         "plain_http_response": "",
         "curves": "",
-        "dhparam": ""
+        "dhparam": "/etc/trojan/trojan.pem"
     },
     "tcp": {
         "prefer_ipv4": true,
         "no_delay": true,
         "keep_alive": true,
+        "reuse_port": true,
         "fast_open": true,
         "fast_open_qlen": 20
     },
@@ -292,23 +430,70 @@ changepasswd(){
     }
 }
 EOF
-	#sed  -i 's/path/etc/g' /usr/local/etc/trojan/config.json
-	#sed  -i 's/to/trojan/g' /usr/local/etc/trojan/config.json
-	#sed  -i 's/certificate.crt/trojan.crt/g' /usr/local/etc/trojan/config.json
-	#sed  -i 's/private.key/trojan.key/g' /usr/local/etc/trojan/config.json
-	sed  -i "s/password1/$password1/g" /usr/local/etc/trojan/config.json
-	sed  -i "s/password2/$password2/g" /usr/local/etc/trojan/config.json
+  cat > '/usr/local/etc/trojan/config6.json' << EOF
+{
+    "run_type": "server",
+    "local_addr": "::",
+    "local_port": 443,
+    "remote_addr": "127.0.0.1",
+    "remote_port": 80,
+    "password": [
+        "$password1",
+        "$password2"
+    ],
+    "log_level": 1,
+    "ssl": {
+        "cert": "/etc/trojan/trojan.crt",
+        "key": "/etc/trojan/trojan.key",
+        "key_password": "",
+        "cipher": "TLS_AES_128_GCM_SHA256",
+  "cipher_tls13":"TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
+        "prefer_server_cipher": true,
+        "alpn": [
+            "http/1.1"
+        ],
+        "reuse_session": true,
+        "session_ticket": true,
+        "session_timeout": 600,
+        "plain_http_response": "",
+        "curves": "",
+        "dhparam": "/etc/trojan/trojan.pem"
+    },
+    "tcp": {
+        "prefer_ipv4": false,
+        "no_delay": true,
+        "keep_alive": true,
+        "reuse_port": true,
+        "fast_open": true,
+        "fast_open_qlen": 20
+    },
+    "mysql": {
+        "enabled": false,
+        "server_addr": "127.0.0.1",
+        "server_port": 3306,
+        "database": "trojan",
+        "username": "trojan",
+        "password": ""
+    }
+}
+EOF
 }
 ########Nginx config for Trojan only##############
 nginxtrojan(){
-rm -rf /etc/nginx/sites-available/*
-rm -rf /etc/nginx/sites-enabled/*
-rm -rf /etc/nginx/conf.d/*
+rm -rf /etc/nginx/sites-available/* || true
+rm -rf /etc/nginx/sites-enabled/* || true
+rm -rf /etc/nginx/conf.d/* || true
 touch /etc/nginx/conf.d/trojan.conf
+  if [[ $dist != centos ]]; then
+    nginxconf
+ else
+    colorEcho ${ERROR} "continuing..."
+ fi
   cat > '/etc/nginx/conf.d/trojan.conf' << EOF
 server {
   listen 127.0.0.1:80;
     server_name $domain;
+    if (\$http_user_agent = "") { return 444; }
     location / {
       root /usr/share/nginx/html/;
         index index.html;
@@ -320,7 +505,8 @@ server {
     listen 80;
     listen [::]:80;
     server_name $domain;
-    root /usr/share/nginx/html/; #needed for auto certificate renew
+    return 301 https://$domain;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 }
 
 server {
@@ -330,21 +516,181 @@ server {
     return 444;
 }
 EOF
+nginx -s reload
+}
+##########Nginx conf####################
+nginxconf(){
+    cat > '/etc/nginx/nginx.conf' << EOF
+user nginx;
+worker_processes auto;
+
+error_log /var/log/nginx/error.log warn;
+#pid /var/run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+events {
+  worker_connections 1024;
+  use epoll;
+  multi_accept on;
+}
+
+http {
+  aio threads;
+  charset UTF-8;
+  tcp_nodelay on;
+  tcp_nopush on;
+  server_tokens off;
+
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  access_log /var/log/nginx/access.log;
+
+
+  log_format  main  '@remote_addr - @remote_user [$time_local] "@request" '
+    '@status $body_bytes_sent "@http_referer" '
+    '"@http_user_agent" "@http_x_forwarded_for"';
+
+  sendfile on;
+  gzip on;
+  gzip_comp_level 4;
+
+  include /etc/nginx/conf.d/*.conf; 
+}
+EOF
+sed  -i 's/@/$/g' /etc/nginx/nginx.conf
 }
 ##########Auto boot start###############
 autostart(){
-	systemctl start trojan
-	systemctl enable nginx
-	systemctl enable trojan
+  systemctl restart trojan || true
+  systemctl restart trojan6 || true
+  systemctl enable nginx || true
+  systemctl enable trojan || true
+  systemctl enable trojan6 || true
 }
 ##########tcp-bbr#####################
 tcp-bbr(){
-	echo "net.ipv4.tcp_slow_start_after_idle = 0" >> /etc/sysctl.d/99-sysctl.conf
-	echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-	echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-sysctl.conf
-        echo "net.ipv4.tcp_max_syn_backlog = 12800" >> /etc/sysctl.d/99-sysctl.conf
-        echo "net.ipv4.tcp_fastopen = 3" >> /etc/sysctl.d/99-sysctl.conf
-	sysctl -p
+  cat > '/etc/sysctl.d/99-sysctl.conf' << EOF
+#
+# /etc/sysctl.conf - Configuration file for setting system variables
+# See /etc/sysctl.d/ for additional system variables.
+# See sysctl.conf (5) for information.
+#
+
+#kernel.domainname = example.com
+
+# Uncomment the following to stop low-level messages on console
+#kernel.printk = 3 4 1 3
+
+##############################################################3
+# Functions previously found in netbase
+#
+
+# Uncomment the next two lines to enable Spoof protection (reverse-path filter)
+# Turn on Source Address Verification in all interfaces to
+# prevent some spoofing attacks
+#net.ipv4.conf.default.rp_filter=1
+#net.ipv4.conf.all.rp_filter=1
+
+# Uncomment the next line to enable TCP/IP SYN cookies
+# See http://lwn.net/Articles/277146/
+# Note: This may impact IPv6 TCP sessions too
+#net.ipv4.tcp_syncookies=1
+
+# Uncomment the next line to enable packet forwarding for IPv4
+#net.ipv4.ip_forward=1
+
+# Uncomment the next line to enable packet forwarding for IPv6
+#  Enabling this option disables Stateless Address Autoconfiguration
+#  based on Router Advertisements for this host
+#net.ipv6.conf.all.forwarding=1
+
+
+###################################################################
+# Additional settings - these settings can improve the network
+# security of the host and prevent against some network attacks
+# including spoofing attacks and man in the middle attacks through
+# redirection. Some network environments, however, require that these
+# settings are disabled so review and enable them as needed.
+#
+# Do not accept ICMP redirects (prevent MITM attacks)
+#net.ipv4.conf.all.accept_redirects = 0
+#net.ipv6.conf.all.accept_redirects = 0
+# _or_
+# Accept ICMP redirects only for gateways listed in our default
+# gateway list (enabled by default)
+# net.ipv4.conf.all.secure_redirects = 1
+#
+# Do not send ICMP redirects (we are not a router)
+#net.ipv4.conf.all.send_redirects = 0
+#
+# Do not accept IP source route packets (we are not a router)
+#net.ipv4.conf.all.accept_source_route = 0
+#net.ipv6.conf.all.accept_source_route = 0
+#
+# Log Martian Packets
+#net.ipv4.conf.all.log_martians = 1
+#
+
+###################################################################
+# Magic system request Key
+# 0=disable, 1=enable all
+# Debian kernels have this set to 0 (disable the key)
+# See https://www.kernel.org/doc/Documentation/sysrq.txt
+# for what other values do
+#kernel.sysrq=1
+
+###################################################################
+# Protected links
+#
+# Protects against creating or following links under certain conditions
+# Debian kernels have both set to 1 (restricted) 
+# See https://www.kernel.org/doc/Documentation/sysctl/fs.txt
+#fs.protected_hardlinks=0
+#fs.protected_symlinks=0
+
+# Overrule forwarding behavior. Accept Router Advertisements
+net.ipv6.conf.all.accept_ra = 2
+# max open files
+fs.file-max = 51200
+# max read buffer
+net.core.rmem_max = 67108864
+# max write buffer
+net.core.wmem_max = 67108864
+# default read buffer
+net.core.rmem_default = 65536
+# default write buffer
+net.core.wmem_default = 65536
+# max processor input queue
+net.core.netdev_max_backlog = 4096
+# max backlog
+net.core.somaxconn = 4096
+# resist SYN flood attacks
+net.ipv4.tcp_syncookies = 1
+# reuse timewait sockets when safe
+net.ipv4.tcp_tw_reuse = 1
+# short FIN timeout
+net.ipv4.tcp_fin_timeout = 30
+# short keepalive time
+net.ipv4.tcp_keepalive_time = 1200
+# outbound port range
+net.ipv4.ip_local_port_range = 10000 65000
+# max timewait sockets held by system simultaneously
+net.ipv4.tcp_max_tw_buckets = 5000
+# turn on TCP Fast Open on both client and server side
+net.ipv4.tcp_fastopen = 3
+# TCP receive buffer
+net.ipv4.tcp_rmem = 4096 87380 67108864
+# TCP write buffer
+net.ipv4.tcp_wmem = 4096 65536 67108864
+# turn on path MTU discovery
+net.ipv4.tcp_mtu_probing = 1
+
+net.ipv4.tcp_slow_start_after_idle = 0
+net.ipv4.tcp_max_syn_backlog = 12800
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+EOF
+  sysctl -p
     cat > '/etc/systemd/system.conf' << EOF
 #  This file is part of systemd.
 #
@@ -506,26 +852,10 @@ ulimit -SHn 51200
 EOF
 systemctl daemon-reload
 }
-##########iptables-persistent########
-iptables-persistent(){
-  if [[ $dist = centos ]]; then
-    yum install iptables-persistent -q -y > /dev/null
- elif [[ $dist = ubuntu ]]; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get install iptables-persistent -q -y > /dev/null
- elif [[ $dist = debian ]]; then
-    export DEBIAN_FRONTEND=noninteractive 
-    apt-get install iptables-persistent -q -y > /dev/null
- else
-  clear
-    colorEcho ${ERROR} "error can't install iptables-persistent"
-    exit 1;
- fi
-}
 ############DNSMASQ#################
 dnsmasq(){
     if [[ $dist = centos ]]; then
-    yum install dnsmasq -q -y > /dev/null
+    yum install -y dnsmasq
  elif [[ $dist = ubuntu ]]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get install dnsmasq -q -y > /dev/null
@@ -552,15 +882,12 @@ server=8.8.4.4#53
 server=1.1.1.1#53
 interface=lo
 bind-interfaces
-listen-address=127.0.0.1
 cache-size=10000
 no-negcache
 log-queries 
 log-facility=/var/log/dnsmasq.log 
 EOF
-  cat > '/etc/resolv.conf' << EOF
-nameserver 127.0.0.1
-EOF
+echo "nameserver 127.0.0.1" > '/etc/resolv.conf'
 systemctl restart dnsmasq
 systemctl enable dnsmasq
 }
@@ -574,23 +901,26 @@ read domain
     read domain
   fi
 colorEcho ${INFO} "It\'s nice to meet you $domain"
-colorEcho ${WARNING} "Please Enter your desired password1 and press [ENTER]: "
+colorEcho ${WARNING} "Please Enter your desired password1 (NO special symbols like "!" Allowed ) and press [ENTER]: "
 read password1
   if [[ -z "$password1" ]]; then
-    colorEcho ${ERROR} "INPUT ERROR! Please Enter your os password1 again and press [ENTER]: "
+    colorEcho ${ERROR} "INPUT ERROR! Please Enter your password1 again and press [ENTER]: "
     read password1
   fi
 colorEcho ${INFO} "Your password1 is $password1"
-colorEcho ${WARNING} "Please Enter your desired password2 and press [ENTER]: "
+colorEcho ${WARNING} "Please Enter your desired password2 (NO special symbols like "!" Allowed ) and press [ENTER]: "
 read password2
   if [[ -z "$password2" ]]; then
     colorEcho ${ERROR} "INPUT ERROR! Please Enter your password2 again and press [ENTER]: "
     read password2
   fi
 colorEcho ${INFO} "Your password2 is $password2"
-colorEcho ${WARNING} "Please Enter your desired Websocket path and press [ENTER]: "
+colorEcho ${WARNING} "Please Enter your desired Websocket path (such as /secret )and press [ENTER]: "
 read path
 colorEcho ${INFO} "Your path is $path"
+colorEcho ${WARNING} "Please Enter your desired alter id (such as 64 )and press [ENTER]: "
+read alterid
+colorEcho ${INFO} "Your path is $alterid"
 }
 installv2ray(){
   bash <(curl -L -s https://install.direct/go.sh) > /dev/null
@@ -617,7 +947,7 @@ installv2ray(){
             "clients": [
                 {
                     "id": "$uuid",
-                    "alterId": 64
+                    "alterId": $alterid
                 }
             ]
         },
@@ -646,10 +976,10 @@ installv2ray(){
       {
         "type": "field",
         "domain": [
-        "baidu.com",
-        "qq.com",
-        "sina.com",
-        "geosite:cn"
+        "domain:baidu.com",
+        "domain:qq.com",
+        "domain:sina.com",
+        "geosite:qihoo360"
       ],
       "outboundTag": "blocked"
       }
@@ -666,26 +996,30 @@ rm -rf /etc/nginx/sites-available/
 rm -rf /etc/nginx/sites-enabled/
 rm -rf /etc/nginx/conf.d/default.conf
 touch /etc/nginx/conf.d/trojan.conf
+  if [[ $dist != centos ]]; then
+    nginxconf
+ else
+    colorEcho ${ERROR} "continuing..."
+ fi
   cat > '/etc/nginx/conf.d/trojan.conf' << EOF
 server {
   listen 127.0.0.1:80; #放在Trojan后面即可做伪装也可以是真正的网站
     server_name $domain;
+    if (\$http_user_agent = "") { return 444; }
     location / {
       root /usr/share/nginx/html/;
         index index.html;
         }
     location $path {
         access_log off;
-        proxy_intercept_errors on;
         proxy_redirect off;
         proxy_pass http://127.0.0.1:10000;
         proxy_http_version 1.1;
-        proxy_set_header Early-Data @ssl_early_data;
-        proxy_set_header Upgrade @http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host @http_host;
-        proxy_set_header X-Real-IP @remote_addr;
-        proxy_set_header X-Forwarded-For @proxy_add_x_forwarded_for;
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         }
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 }
@@ -694,7 +1028,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name $domain;
-    root /usr/share/nginx/html/; #用于自动更新证书
+    return 301 https://$domain;
 }
 
 server {
@@ -704,7 +1038,7 @@ server {
     return 444;
 }
 EOF
-sed  -i 's/@/$/g' /etc/nginx/conf.d/trojan.conf
+nginx -s reload
 }
 ###########Trojan Client Config#############
 trojanclient(){
@@ -726,6 +1060,7 @@ trojanclient(){
         "verify_hostname": true,
         "cert": "",
         "cipher": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:RSA-AES128-GCM-SHA256:RSA-AES256-GCM-SHA384:RSA-AES128-SHA:RSA-AES256-SHA:RSA-3DES-EDE-SHA",
+  "cipher_tls13":"TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
         "sni": "$domain",
         "alpn": [
             "h2",
@@ -738,6 +1073,7 @@ trojanclient(){
     "tcp": {
         "no_delay": true,
         "keep_alive": true,
+  "reuse_port": true,
         "fast_open": true,
         "fast_open_qlen": 20
     }
@@ -759,6 +1095,7 @@ EOF
         "verify_hostname": true,
         "cert": "",
         "cipher": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:RSA-AES128-GCM-SHA256:RSA-AES256-GCM-SHA384:RSA-AES128-SHA:RSA-AES256-SHA:RSA-3DES-EDE-SHA",
+  "cipher_tls13":"TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
         "sni": "$domain",
         "alpn": [
             "h2",
@@ -771,6 +1108,7 @@ EOF
     "tcp": {
         "no_delay": true,
         "keep_alive": true,
+  "reuse_port": true,
         "fast_open": true,
         "fast_open_qlen": 20
     }
@@ -783,26 +1121,24 @@ v2rayclient(){
   cat > '/etc/v2ray/client.json' << EOF
 {
   "inbounds": [
+        {
+            "listen": "127.0.0.1",
+            "port": 1081,
+            "protocol": "socks",
+            "settings":{},
+            "sniffing": {
+                "enabled": true,
+                "destOverride": ["http","tls"]
+                        }
+                },
     {
-      "listen": "0.0.0.0",
+      "listen": "127.0.0.1",
       "port": 8001,
       "protocol": "http",
+            "settings": {},
       "sniffing": {
         "enabled": true,
         "destOverride": ["http","tls"]
-      }
-    },
-    {
-      "port": 1081,
-      "listen": "127.0.0.1",
-      "protocol": "socks",
-      "sniffing": {
-        "enabled": true,
-        "destOverride": ["http", "tls"]
-      },
-      "settings": {
-        "auth": "noauth",
-        "udp": false
       }
     }
   ],
@@ -818,8 +1154,8 @@ v2rayclient(){
             "users": [
               {
                 "id": "$uuid",
-                "alterId": 0,
-                "security": "none" //使用TLS则无需二次加密
+                "alterId": $alterid,
+                "security": "auto"
               }
             ]
           }
@@ -838,8 +1174,12 @@ v2rayclient(){
         "allowInsecure": false,
         "alpn": ["http/1.1","h2"],
         "serverName": "$domain",
-        "allowInsecureCiphers": false,
-        "disableSystemRoot": false
+                "allowInsecureCiphers": false,
+                "disableSystemRoot": false
+      },
+        "sockopt": {
+          "mark": 255
+        }
       },
       "mux": {
         "enabled": false
@@ -848,23 +1188,39 @@ v2rayclient(){
     {
       "tag": "direct",
       "protocol": "freedom",
-      "settings": {}
+      "settings": {},
+      "streamSettings": {
+        "sockopt": {
+          "mark": 255
+        }
+      }
     },
+        {
+            "tag": "adblock",
+            "protocol" : "blackhole",
+            "settings": {},
+            "streamSettings": {
+                "sockopt": {
+                    "mark": 255
+                    }
+            }
+        },
     {
-      "tag": "adblock",
-      "protocol" : "blackhole",
-      "settings": {}
+      "protocol": "dns",
+      "tag": "dns-out"
     }
   ],
-  "dns": {
+    "dns": {
+      "hosts": {
+    "geosite:qihoo360": "0.0.0.0"
+    },
     "servers": [
-      "8.8.8.8",
-      {
-        "address": "114.114.114.114",
-        "port": 53,
-        "domains": [
-          "geosite:cn"
-        ]
+      "8.8.4.4",
+      "1.1.1.1",
+        {
+           "address": "114.114.114.114",
+           "port": 53,
+           "domains": ["geosite:cn","ntp.org"]
       }
     ]
   },
@@ -873,36 +1229,33 @@ v2rayclient(){
     "rules": [
       {
         "type": "field",
-        "outboundTag": "direct",
-        "ip": [
-          "geoip:private"
-        ]
+        "inboundTag": ["dns-in"],
+        "outboundTag": "dns-out"
+      },
+      {                                                                   
+        "type": "field",                                                  
+        "domain": ["geosite:qihoo360"],                                   
+        "outboundTag": "adblock"                                          
       },
       {
         "type": "field",
         "outboundTag": "direct",
-        "ip": [
-          "geoip:cn"
-        ]
+        "ip": ["geoip:private"]
       },
       {
         "type": "field",
         "outboundTag": "direct",
-        "domain": [
-          "geosite:cn"
-        ]
+        "ip": ["geoip:cn"]
       },
       {
         "type": "field",
         "outboundTag": "direct",
-        "protocol": [
-          "bittorrent"
-        ]
+        "domain": ["geosite:cn"]
       },
       {
-        "type" :"field",
-        "outboundTag": "adblock",
-        "domain": ["geosite:category-ads"]
+        "type": "field",
+        "outboundTag": "direct",
+        "protocol": ["bittorrent"]
       }
     ]
   }
@@ -911,18 +1264,18 @@ EOF
 }
 ##########Remove Trojan-Gfw##########
 removetrojan(){
-  systemctl stop trojan
-  systemctl disable trojan
-  rm -rf /usr/local/etc/trojan/*
-  rm -rf /etc/trojan/*
-  rm -rf /etc/systemd/system/trojan.service
-  rm -rf ~/.acme.sh/$domain
+  systemctl stop trojan || true
+  systemctl disable trojan || true
+  rm -rf /usr/local/etc/trojan/* || true
+  rm -rf /etc/trojan/* || true
+  rm -rf /etc/systemd/system/trojan* || true
+  rm -rf ~/.acme.sh/$domain || true
 }
 ##########Remove V2ray###############
 removev2ray(){
-  systemctl stop v2ray
-  systemctl disable v2ray
-  systemctl daemon-reload
+  systemctl stop v2ray || true
+  systemctl disable v2ray || true
+  systemctl daemon-reload || true
   cd
   wget https://install.direct/go.sh -q
   sudo bash go.sh --remove
@@ -930,53 +1283,60 @@ removev2ray(){
 }
 ###########Remove Nginx dnsmasq and acme###############
 removenginx(){
-  systemctl stop nginx
-  systemctl disable nginx
-  apt purge nginx -p -y
-  apt purge dnsmasq -p -y
-  rm -rf /etc/apt/sources.list.d/nginx.list
+  systemctl stop nginx || true
+  systemctl disable nginx || true
+    if [[ $dist = centos ]]; then
+    yum remove nginx dnsmasq -y || true
+    else
+    apt purge nginx dnsmasq -p -y || true
+    rm -rf /etc/apt/sources.list.d/nginx.list || true
+  fi
   sudo ~/.acme.sh/acme.sh --uninstall
 }
 ##########Check for update############
 checkupdate(){
   cd
   wget https://install.direct/go.sh -q
-  sudo bash go.sh --check
+  sudo bash go.sh
   rm go.sh
   bash -c "$(wget -O- https://raw.githubusercontent.com/trojan-gfw/trojan-quickstart/master/trojan-quickstart.sh)"
 }
 ###########Trojan share link########
 trojanlink(){
   cd
-  if [[ $(lsb_release -cs) != xenial ]]; then
-  wget https://github.com/trojan-gfw/trojan-url/raw/master/trojan-url.py -q
-  chmod +x trojan-url.py
-  #./trojan-url.py -i /etc/trojan/client.json
-  ./trojan-url.py -q -i /etc/trojan/client1.json -o $password1.png
-  ./trojan-url.py -q -i /etc/trojan/client2.json -o $password2.png
-  cp $password1.png /usr/share/nginx/html/
-  cp $password2.png /usr/share/nginx/html/
   colorEcho ${INFO} "Your Trojan-Gfw Share link1 is"
   colorEcho ${LINK} "trojan://$password1@$domain:443"
   colorEcho ${INFO} "Your Trojan-Gfw Share link2 is"
   colorEcho ${LINK} "trojan://$password2@$domain:443"
+if [[ $dist = centos ]]
+then
+colorEcho ${ERROR} "QR generate Fail ! Because your os does not support python3-qrcode,Please consider change your os!"
+elif [[ $(lsb_release -cs) = xenial ]] || [[ $(lsb_release -cs) = trusty ]] || [[ $(lsb_release -cs) = jessie ]]
+then
+colorEcho ${ERROR} "QR generate Fail ! Because your os does not support python3-qrcode,Please consider change your os!"
+else
+  wget https://github.com/trojan-gfw/trojan-url/raw/master/trojan-url.py -q
+  chmod +x trojan-url.py
+  #./trojan-url.py -i /etc/trojan/client.json
+  ./trojan-url.py -q -i /etc/trojan/client1.json -o $password1.png || true
+  ./trojan-url.py -q -i /etc/trojan/client2.json -o $password2.png || true
+  cp $password1.png /usr/share/nginx/html/ || true
+  cp $password2.png /usr/share/nginx/html/ || true
   colorEcho ${INFO} "Please visit the link below to get your QR code1"
   colorEcho ${LINK} "https://$domain/$password1.png"
   colorEcho ${INFO} "Please visit the link below to get your QR code2"
   colorEcho ${LINK} "https://$domain/$password2.png"
   rm -rf trojan-url.py
-  rm -rf $password1.png
-  rm -rf $password2.png
-  else
-    colorEcho ${ERROR} "QR generate Fail ! Because Ubuntu 16.04 does not support python3-qrcode,Please change your os!"
-  fi
+  rm -rf $password1.png || true
+  rm -rf $password2.png || true
+fi
 }
 ########V2ray share link############
 v2raylink(){
   wget https://github.com/boypt/vmess2json/raw/master/json2vmess.py -q
   chmod +x json2vmess.py
   touch /etc/v2ray/$uuid.txt
-  v2link=$(./json2vmess.py --addr $domain --filter ws --amend port:443 --amend tls:tls /etc/v2ray/config.json)
+  v2link=$(./json2vmess.py --addr $domain --filter ws --amend port:443 --amend tls:tls /etc/v2ray/config.json) || true
     cat > "/etc/v2ray/$uuid.txt" << EOF
 $v2link
 EOF
@@ -988,6 +1348,23 @@ EOF
   rm -rf json2vmess.py
   colorEcho ${INFO} "Please manually run cat /etc/v2ray/$uuid.txt to show share link again!"
 }
+#######HTML Random Choose########E
+html(){
+  htmlcode=$(shuf -i 1-3 -n 1)
+  wget https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/$htmlcode.zip
+  unzip -o $htmlcode.zip -d /usr/share/nginx/html/
+  rm -rf $htmlcode.zip
+}
+##################################
+timesync(){
+  timedatectl set-timezone Asia/Hong_Kong
+  timedatectl set-ntp on
+  if [[ $dist = centos ]]; then
+    :
+    else
+      ntpdate -qu 1.hk.pool.ntp.org
+  fi
+}
 ####################################
 DELAY=3 # Number of seconds to display results
 
@@ -996,7 +1373,7 @@ while true; do
   cat << _EOF_
 This script will help you set up a trojan-gfw server in an extremely fast way.
 For more Info: https://www.johnrosen1.com/trojan/
-If you are not sure,Please choose option 1 !
+If you are not sure,Please choose option 1 or 2 and press [ENTER] to skip all optional options !
 Please Select:
 
 1. Normal Install (new machine)
@@ -1025,23 +1402,23 @@ _EOF_
         colorEcho ${INFO} "Your os codename is $dist $(lsb_release -cs)"
         colorEcho ${INFO} "Updating system"
         updatesystem
-        colorEcho ${WARNING} "Dnsmasq can acclerate dns resolve by caching dns requests,continue?"
+        colorEcho ${INFO} "installing dependency"
+        installdependency
+        colorEcho ${WARNING} "Dnsmasq can acclerate dns resolve by caching dns requests,continue? If you are unsure,Please press [ENTER] to skip"
         if ! [[ -n "$dist" ]] || prompt ${WARNING} "continue?"; then
         colorEcho ${INFO} "Installing dnsmasq"
         dnsmasq
         else
         echo Skipping dnsmasq config...
         fi
-        colorEcho ${WARNING} "Upgrade system may cause unwanted bugs...,continue?"
+        colorEcho ${WARNING} "Upgrade system may cause unwanted bugs...,continue? If you are unsure,Please press [ENTER] to skip"
         if ! [[ -n "$dist" ]] || prompt ${WARNING} "continue?"; then
         colorEcho ${INFO} "Upgrading system"
         upgradesystem
         else
         echo Skipping system upgrade...
         fi
-        clear
-        colorEcho ${INFO} "installing dependency"
-        installdependency       
+        clear    
         if isresolved $domain
         then
         :
@@ -1062,14 +1439,12 @@ _EOF_
         colorEcho ${INFO} "installing acme"
         installacme
         clear
-        colorEcho ${INFO} "autoconfiging nginx"
-        nginxtrojan
-        clear
         colorEcho ${INFO} "issueing let\'s encrypt certificate"
         issuecert
         clear
-        colorEcho ${INFO} "issue complete,installing certificate"
-        installcert
+        colorEcho ${INFO} "autoconfiging nginx"
+        nginxtrojan
+        html
         clear
         colorEcho ${INFO} "certificate install complete!"
         colorEcho ${INFO} "giving private key read authority"
@@ -1080,11 +1455,7 @@ _EOF_
         clear
         colorEcho ${INFO} "starting trojan-gfw and nginx | setting up boot autostart"
         autostart
-        clear
-        colorEcho ${INFO} "Setting up tcp-bbr boost technology"
-        tcp-bbr
-        clear
-        iptables-persistent
+        timesync
         clear
         trojanclient
         colorEcho ${INFO} "Your Trojan-Gfw client config profile 1"
@@ -1095,6 +1466,8 @@ _EOF_
         colorEcho ${INFO} "https://github.com/trojan-gfw/trojan/wiki/Mobile-Platforms"
         colorEcho ${INFO} "https://github.com/trojan-gfw/trojan/releases/latest"        
         colorEcho ${SUCCESS} "Install Success,Enjoy it!"
+        colorEcho ${INFO} "Setting up tcp-bbr boost technology"
+        tcp-bbr
         break
         ;;
       2)
@@ -1106,14 +1479,16 @@ _EOF_
         colorEcho ${INFO} "Your os codename is $dist $(lsb_release -cs)"
         colorEcho ${INFO} "Updating system"
         updatesystem
-        colorEcho ${WARNING} "Dnsmasq can acclerate dns resolve by caching dns requests,continue?"
+        colorEcho ${INFO} "installing dependency"
+        installdependency
+        colorEcho ${WARNING} "Dnsmasq can acclerate dns resolve by caching dns requests,continue? If you are unsure,Please press [ENTER] to skip!"
         if ! [[ -n "$dist" ]] || prompt ${WARNING} "continue?"; then
         colorEcho ${INFO} "Installing dnsmasq"
         dnsmasq
         else
         echo Skipping dnsmasq config...
         fi
-        colorEcho ${WARNING} "Upgrade system may cause unwanted bugs...,continue?"
+        colorEcho ${WARNING} "Upgrade system may cause unwanted bugs...,continue? If you are unsure,Please press [ENTER] to skip!"
         if ! [[ -n "$dist" ]] || prompt ${WARNING} "continue?"; then
         colorEcho ${INFO} "Upgrading system"
         upgradesystem
@@ -1121,8 +1496,6 @@ _EOF_
         echo Skipping system upgrade...
         fi
         clear
-        colorEcho ${INFO} "installing dependency"
-        installdependency
         if isresolved $domain
         then
         :
@@ -1140,14 +1513,13 @@ _EOF_
         colorEcho ${INFO} "installing acme"
         installacme
         clear
-        colorEcho ${INFO} "configing v2ray vmess+tls+Websocket"
-        nginxv2ray
-        clear
         colorEcho ${INFO} "issueing let\'s encrypt certificate"
         issuecert
-        colorEcho ${INFO} "issueing let\'s encrypt certificate"
-        installcert
         colorEcho ${INFO} "certificate install complete!"
+        colorEcho ${INFO} "configing nginx for v2ray vmess+tls+Websocket"
+        nginxv2ray
+        html
+        clear
         colorEcho ${INFO} "giving private key read authority"
         installkey
         changepasswd
@@ -1155,9 +1527,7 @@ _EOF_
         installv2ray
         colorEcho ${INFO} "starting trojan-gfw v2ray and nginx | setting up boot autostart"
         autostart
-        colorEcho ${INFO} "Setting up tcp-bbr boost technology"
-        tcp-bbr
-        iptables-persistent
+        timesync
         clear
         trojanclient
         colorEcho ${INFO} "Your Trojan-Gfw client config profile 1"
@@ -1173,6 +1543,8 @@ _EOF_
         v2raylink
         colorEcho ${INFO} "https://github.com/v2ray/v2ray-core/releases/latest"
         colorEcho ${INFO} "Install Success,Enjoy it!"
+        colorEcho ${INFO} "Setting up tcp-bbr boost technology"
+        tcp-bbr
         break
         ;;
       3)
