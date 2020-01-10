@@ -66,12 +66,12 @@ isresolved(){
 }
 ###############User input################
 userinput(){
-whiptail --title "User choose" --checklist --separate-output "Choose:" 20 78 7 \
+whiptail --title "User choose" --checklist --separate-output --nocancel "Press Space to Choose:(Trojan-GFW and Nginx has been included)" 20 78 7 \
 "1" "系统升级(System Upgrade)" on \
 "2" "仅启用TLS1.3(TLS1.3 ONLY)" off \
 "3" "安装V2ray(Vmess+Websocket+TLS+Nginx)" off \
 "4" "安装Shadowsocks(Shadowsocks+Websocket+TLS+Nginx)" off \
-"5" "安装Dnsmasq(Dns cache)" off \
+"5" "安装Dnsmasq(Dns cache)" on \
 "6" "安装Qbittorrent(Nginx Proxy)" off \
 "7" "安装BBRPLUS(not recommended)" off 2>results
 
@@ -104,8 +104,17 @@ do
   esac
 done < results
 domain=$(whiptail --inputbox --nocancel "朽木不可雕也，糞土之牆不可污也，快输入你的域名并按回车" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
+while [[ -z $domain ]]; do
+domain=$(whiptail --inputbox --nocancel "看什么看，快输入你的域名并按回车" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
+done
 password1=$(whiptail --passwordbox --nocancel "別動不動就爆粗口，你把你媽揣兜了隨口就說，快输入你想要的密码一并按回车" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
+while [[ -z $password1 ]]; do
+password1=$(whiptail --passwordbox --nocancel "你到底想干啥，你把你媽揣兜了隨口就說，快输入你想要的密码一并按回车" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
+done
 password2=$(whiptail --passwordbox --nocancel "你別逼我在我和你全家之間加動詞或者是名詞啊，快输入想要的密码二并按回车" 8 78 --title "password2 input" 3>&1 1>&2 2>&3)
+while [[ -z $password2 ]]; do
+password2=$(whiptail --passwordbox --nocancel "你是不是想找死，快输入想要的密码二并按回车" 8 78 --title "password2 input" 3>&1 1>&2 2>&3)
+done
 
     if [[ $install_v2ray = 1 ]] && [[ $install_ss = 1 ]]; then
       path=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的V2ray Websocket路径并按回车" 8 78 /secret --title "Websocket path input" 3>&1 1>&2 2>&3)
@@ -128,11 +137,23 @@ password2=$(whiptail --passwordbox --nocancel "你別逼我在我和你全家之
       ;;
       esac
     elif [[ $install_v2ray = 1 ]]; then
-      path=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Websocket路径并按回车" 8 78 /secret --title "Websocket path input" 3>&1 1>&2 2>&3)
-      alterid=$(whiptail --inputbox --nocancel "快输入你的想要的alter id大小并按回车" 8 78 64 --title "alterid input" 3>&1 1>&2 2>&3)
+      path=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的V2ray Websocket路径并按回车" 8 78 /secret --title "Websocket path input" 3>&1 1>&2 2>&3)
+      while [[ -z $path ]]; do
+      path=$(whiptail --inputbox --nocancel "你是不是想找死，快输入想要的V2ray Websocket路径并按回车" 8 78 --title "Websocket path input" 3>&1 1>&2 2>&3)
+      done
+      alterid=$(whiptail --inputbox --nocancel "快输入你的想要的alter id大小(只能是数字)并按回车" 8 78 64 --title "alterid input" 3>&1 1>&2 2>&3)
+      while [[ -z $alterid ]]; do
+      alterid=$(whiptail --inputbox --nocancel "你是不是想找死，快输入想要的alter id大小(只能是数字)二并按回车" 8 78 --title "alterid input" 3>&1 1>&2 2>&3)
+      done
     elif [[ $install_ss = 1 ]]; then
       sspath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的ss-Websocket路径并按回车" 8 78 /ss --title "ss-Websocket path input" 3>&1 1>&2 2>&3)
-      sspasswd=$(whiptail --passwordbox --nocancel "Put your thinking cap on.，快输入你的想要的ss密码并按回车" 8 78  --title "ss-Websocket passwd" 3>&1 1>&2 2>&3)
+      while [[ -z $sspath ]]; do
+      sspath=$(whiptail --inputbox --nocancel "你是不是想找死，快输入想要的ss-Websocket路径并按回车" 8 78 --title "ss-Websocket path input" 3>&1 1>&2 2>&3)
+      done
+      sspasswd=$(whiptail --passwordbox --nocancel "Put your thinking cap on.，快输入你的想要的ss密码并按回车" 8 78  --title "ss passwd input" 3>&1 1>&2 2>&3)
+      while [[ -z $sspasswd ]]; do
+      sspasswd=$(whiptail --passwordbox --nocancel "你是不是想找死，快输入想要的ss密码并按回车" 8 78 --title "ss passwd input" 3>&1 1>&2 2>&3)
+      done
       ssen=$(whiptail --title "SS encrypt method Menu" --menu --nocancel "Choose an option RTFM: https://www.johnrosen1.com/trojan/" 25 78 16 \
       "1" "aes-128-gcm" \
       "2" "aes-256-gcm" \
@@ -153,6 +174,9 @@ password2=$(whiptail --passwordbox --nocancel "你別逼我在我和你全家之
     fi
     if [[ $install_qbt = 1 ]]; then
       qbtpath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Qbittorrent路径并按回车" 8 78 /qbt --title "Qbittorrent path input" 3>&1 1>&2 2>&3)
+      while [[ -z $qbtpath ]]; do
+      qbtpath=$(whiptail --inputbox --nocancel "你是不是想找死，快输入想要的Qbittorrent路径并按回车" 8 78 --title "Qbittorrent path input" 3>&1 1>&2 2>&3)
+      done
     fi
 }
 ###############OS detect####################
@@ -243,6 +267,7 @@ installdependency(){
     exit 1;
  fi
 ###########################################
+  clear
   colorEcho ${INFO} "安装所有必备软件(Install all necessary Software)"
   if [[ $dist = centos ]]; then
     yum install -y sudo curl wget gnupg python3-qrcode unzip bind-utils epel-release chrony systemd
@@ -258,6 +283,7 @@ installdependency(){
   TERM=ansi whiptail --title "error can't install dependency" --infobox "error can't install dependency" 8 78
     exit 1;
  fi
+ clear
 #############################################
 if isresolved $domain
   then
@@ -272,6 +298,7 @@ fi
 if [[ $system_upgrade = 1 ]]; then
 upgradesystem
 fi
+clear
 #############################################
 if [[ $tls13only = 1 ]]; then
 cipher_server="TLS_AES_128_GCM_SHA256"
@@ -293,8 +320,40 @@ if [[ $dnsmasq_install = 1 ]]; then
  fi
  if [[ $dist = ubuntu ]]; then
    systemctl stop systemd-resolved || true
-   systemctl disable systemd-resolved || true
+   systemctl disable systemd-resolved || true > /dev/null
  fi
+ touch /etc/dnsmasq.txt || true
+      cat > '/etc/dnsmasq.txt' << EOF
+####Block 360####
+0.0.0.0 360.cn
+0.0.0.0 360.com
+0.0.0.0 360jie.com
+0.0.0.0 360kan.com
+0.0.0.0 360taojin.com
+0.0.0.0 i360mall.com
+0.0.0.0 qhimg.com
+0.0.0.0 qhmsg.com
+0.0.0.0 qhres.com
+0.0.0.0 qihoo.com
+0.0.0.0 nicaifu.com
+0.0.0.0 so.com
+####Block Xunlei###
+0.0.0.0 xunlei.com
+####Block Baidu###
+0.0.0.0 baidu.cn
+0.0.0.0 baidu.com
+0.0.0.0 baiducontent.com
+0.0.0.0 baidupcs.com
+0.0.0.0 baidustatic.com
+0.0.0.0 baifubao.com
+0.0.0.0 bdimg.com
+0.0.0.0 bdstatic.com
+0.0.0.0 duapps.com
+0.0.0.0 quyaoya.com
+0.0.0.0 tiebaimg.com
+0.0.0.0 xiaodutv.com
+0.0.0.0 sina.com
+EOF
      cat > '/etc/dnsmasq.conf' << EOF
 port=53
 domain-needed
@@ -302,6 +361,7 @@ bogus-priv
 no-resolv
 server=8.8.4.4#53
 server=1.1.1.1#53
+addn-hosts=/etc/dnsmasq.txt
 interface=lo
 bind-interfaces
 cache-size=10000
@@ -314,10 +374,12 @@ systemctl restart dnsmasq || true
 systemctl enable dnsmasq || true      
   fi
 fi
+clear
 #############################################
 if [[ $install_v2ray = 1 ]] || [[ $install_ss = 1 ]]; then
   installv2ray
 fi
+clear
 #############################################
 if [[ $install_qbt = 1 ]]; then
   if [[ -f /usr/bin/qbittorrent-nox ]]; then
@@ -358,27 +420,27 @@ RestartSec=3s
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl daemon-reload
-systemctl enable qbittorrent.service
-systemctl start qbittorrent.service
 fi      
 fi
-
+clear
 #############################################
   curl -s https://get.acme.sh | sh
   sudo ~/.acme.sh/acme.sh --upgrade --auto-upgrade
   if [[ -f /usr/local/bin/trojan ]]; then
     :
     else
+  clear
   bash -c "$(wget -O- https://raw.githubusercontent.com/trojan-gfw/trojan-quickstart/master/trojan-quickstart.sh)"
   systemctl daemon-reload      
   fi
+  clear
 #####################################################
   if [[ -f /etc/apt/sources.list.d/nginx.list ]]; then
     :
     else
   if [[ $dist = centos ]]; then
   yum install nginx -y
+  systemctl stop nginx || true
  elif [[ $dist = debian ]] || [[ $dist = ubuntu ]]; then
   wget https://nginx.org/keys/nginx_signing.key -q
   apt-key add nginx_signing.key
@@ -398,6 +460,7 @@ EOF
  fi
 fi
 nginxconf
+clear
 }
 ##################################################
 issuecert(){
@@ -418,7 +481,7 @@ server {
 }
 EOF
   systemctl start nginx
-  sudo ~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --log --reloadcmd "systemctl restart trojan"
+  sudo ~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --log --reloadcmd "systemctl reload trojan || true"
   sudo ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /etc/trojan/trojan.crt --keypath /etc/trojan/trojan.key --ecc
   chmod +r /etc/trojan/trojan.key
   fi
@@ -542,6 +605,11 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         }
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer";
+  #add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
+  add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 }
 
 server {
@@ -591,6 +659,11 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         }
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer";
+  #add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
+  add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 }
 
 server {
@@ -648,6 +721,11 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         }
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer";
+  #add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
+  add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 }
 
 server {
@@ -705,6 +783,11 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         }
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer";
+  #add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
+  add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 }
 
 server {
@@ -743,6 +826,11 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         }
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer";
+  #add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
+  add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 }
 
 server {
@@ -781,6 +869,11 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         }
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer";
+  #add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
+  add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 }
 
 server {
@@ -827,6 +920,11 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         }
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer";
+  #add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
+  add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 }
 
 server {
@@ -851,6 +949,11 @@ server {
     if (\$http_user_agent = "") { return 444; }
     root /usr/share/nginx/html/;
   add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer";
+  #add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
+  add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 }
 
 server {
@@ -891,7 +994,7 @@ events {
 }
 
 http {
-  aio threads;
+  #aio threads; //Please enable it by yourself,disabled for compatibility.
   charset UTF-8;
   tcp_nodelay on;
   tcp_nopush on;
@@ -916,9 +1019,27 @@ http {
 EOF
 }
 ##########Auto boot start###############
-autostart(){
-  colorEcho ${INFO} "启动(starting) trojan-gfw and nginx 并设置开机自启(auto boot start) ing..."
+start(){
+  colorEcho ${INFO} "启动(starting) trojan-gfw and nginx ing..."
+  systemctl daemon-reload || true
+  if [[ $install_v2ray = 1 ]] || [[ $install_ss = 1 ]]; then
+    systemctl start v2ray || true
+  fi
+  if [[ $install_qbt = 1 ]]; then
+    systemctl start qbittorrent.service || true
+  fi
   systemctl restart trojan || true
+  systemctl restart nginx || true
+}
+bootstart(){
+  colorEcho ${INFO} "设置开机自启(auto boot start) ing..."
+  systemctl daemon-reload || true
+  if [[ $install_v2ray = 1 ]] || [[ $install_ss = 1 ]]; then
+    systemctl enable v2ray || true
+  fi
+  if [[ $install_qbt = 1 ]]; then
+    systemctl enable qbittorrent.service || true
+  fi
   systemctl enable nginx || true
   systemctl enable trojan || true
 }
@@ -949,7 +1070,7 @@ net.ipv4.tcp_max_syn_backlog = 12800
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
-  sysctl -p
+  sysctl -p > /dev/null
     cat > '/etc/systemd/system.conf' << EOF
 [Manager]
 #DefaultTimeoutStartSec=90s
@@ -1257,8 +1378,6 @@ EOF
 }
 EOF
   fi
-systemctl start v2ray
-systemctl enable v2ray
 }
 ###########Trojan Client Config#############
 trojanclient(){
@@ -1561,6 +1680,7 @@ v2raylink(){
     if [[ $install_ss = 1 ]]; then
     :
     else
+  echo
   wget https://github.com/boypt/vmess2json/raw/master/json2vmess.py -q
   chmod +x json2vmess.py
   touch /etc/v2ray/$uuid.txt
@@ -1581,8 +1701,14 @@ fi
 ##########SS Link###########
 sslink(){
     if [[ $install_ss = 1 ]]; then
+    echo
     colorEcho ${INFO} "你的SS信息(Your Shadowsocks Information)"
-    colorEcho ${INFO} "$sspasswd@https://$domain/$sspath"
+    colorEcho ${LINK} "$sspasswd@https://$domain/$sspath"
+  fi
+    if [[ $install_qbt = 1 ]]; then
+    echo
+    colorEcho ${INFO} "你的Qbittorrent信息(Your Qbittorrent Information)"
+    colorEcho ${LINK} "https://$domain/$qbtpath username admin password adminadmin"
   fi
 }
 ##################################
@@ -1599,12 +1725,13 @@ timesync(){
 clear
 function advancedMenu() {
     ADVSEL=$(whiptail --title "Trojan-Gfw Script Menu" --menu --nocancel "Choose an option RTFM: https://www.johnrosen1.com/trojan/" 25 78 16 \
-        "1" "安裝(Install)" \
-        "2" "更新(Update)" \
-        "3" "卸載(Uninstall)" \
+        "1" "安裝(Install Trojan-GFW NGINX and other optional software)" \
+        "2" "更新(Update  Trojan-GFW V2ray and Shadowsocks)" \
+        "3" "卸載(Uninstall Everything)" \
         "4" "退出(Quit)" 3>&1 1>&2 2>&3)
     case $ADVSEL in
         1)
+        cd
         clear
         userinput
         clear
@@ -1617,8 +1744,8 @@ function advancedMenu() {
         nginxtrojan || true
         clear
         changepasswd || true
+        bootstart
         clear
-        autostart
         timesync || true
         clear
         trojanclient || true
@@ -1626,13 +1753,16 @@ function advancedMenu() {
         v2raylink || true
         sslink || true
         tcp-bbr || true
-        whiptail --title "Option 1" --msgbox "安装成功，享受吧！(Install Success! Enjoy it ! )多行不義必自斃，子姑待之。RTFM: https://www.johnrosen1.com/trojan/" 8 78
+        start
+        whiptail --title "Install Success" --msgbox "安装成功，享受吧！(Install Success! Enjoy it ! )多行不義必自斃，子姑待之。RTFM: https://www.johnrosen1.com/trojan/" 8 78
         ;;
         2)
+        cd
         checkupdate
         colorEcho ${SUCCESS} "RTFM: https://www.johnrosen1.com/trojan/"
         ;;
         3)
+        cd
         uninstall
         colorEcho ${SUCCESS} "Remove complete"
         ;;
