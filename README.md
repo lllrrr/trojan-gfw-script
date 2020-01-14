@@ -5,13 +5,13 @@
 
 ### GUI Version (Everything has been included)
 ```
-apt-get update && apt-get install sudo whiptail curl -y
+apt-get update && apt-get install sudo whiptail curl locales -y
 ```
 ```
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/trojangui.sh)"
 ```
 ![menu](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/menu.png)
-![choose](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/choose.png)
+![choose](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/user.png)
 #### Bash Features:
 
 1. Auto install and config **[Trojan-GFW](https://github.com/trojan-gfw/trojan) and [NGINX](https://www.nginx.com/)**
@@ -31,7 +31,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/johnrosen1/trojan-g
 18. Auto enable ***[time sync](https://www.freedesktop.org/software/systemd/man/timedatectl.html)***
 19. Auto enable ***Fail Restart*** 
 20. Auto [uninstall Aliyun Aegis](https://www.johnrosen1.com/ali-iso/)
-20. Support Auto install and config **[Dnsmasq](https://en.wikipedia.org/wiki/Dnsmasq) [V2ray](https://www.v2ray.com/index.html) [Shadowsocks](https://shadowsocks.org/en/index.html)([V2ray-plugin](https://github.com/shadowsocks/v2ray-plugin)) and [Qbittorrent](https://www.qbittorrent.org/)**
+20. Support Auto install and config **[Dnsmasq](https://en.wikipedia.org/wiki/Dnsmasq) [V2ray](https://www.v2ray.com/index.html) [Shadowsocks](https://shadowsocks.org/en/index.html)([V2ray-plugin](https://github.com/shadowsocks/v2ray-plugin)) [Qbittorrent](https://www.qbittorrent.org/) and [Aria2](https://github.com/aria2/aria2)**
 20. Support auto ***random vmess uuid generate***
 19. Support auto [***vmess or ss + tls + websocket + nginx*** config](https://guide.v2fly.org/advanced/wss_and_web.html)
 20. Support ***[BBRPLUS](https://github.com/chiakge/Linux-NetSpeed)***
@@ -77,6 +77,7 @@ sudo systemctl status nginx
 sudo systemctl status v2ray
 sudo systemctl status dnsmasq
 sudo systemctl status qbittorrent
+sudo systemctl status aria2
 journalctl -e -u trojan.service
 cat /var/log/v2ray/error.log
 cat /etc/v2ray/config.json
