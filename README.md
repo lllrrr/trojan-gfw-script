@@ -10,8 +10,8 @@ apt-get update && apt-get install sudo whiptail curl locales -y
 ```
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/trojangui.sh)"
 ```
-![menu](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/menu.png)
-![choose](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/user.png)
+![menu](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/mainmenu.png)
+![choose](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/useroption.png)
 #### Bash Features:
 
 1. Auto install and config **[Trojan-GFW](https://github.com/trojan-gfw/trojan) and [NGINX](https://www.nginx.com/)**
@@ -19,7 +19,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/johnrosen1/trojan-g
 4. Auto OS Detect **Support [Debian](https://www.debian.org/) [Ubuntu](https://ubuntu.com/)** (NO Centos Support!!!)
 5. Auto [domain resolve verification](https://en.wikipedia.org/wiki/Nslookup)
 6. Auto [iptables](https://en.wikipedia.org/wiki/Iptables)(includes ipv6) firewall config and [iptables-persistent](https://github.com/zertrin/iptables-persistent)
-7. Auto generate client config (includes both Trojan-GFW and V2ray )
+7. Auto generate [client config](https://trojan-gfw.github.io/trojan/config) (includes both Trojan-GFW and V2ray )
 9. Auto [TCP Turbo](https://github.com/shadowsocks/shadowsocks/wiki/Optimizing-Shadowsocks) enable ( **[TCP-BBR](https://github.com/google/bbr)** included)
 10. Auto [Nginx Performance Optimization](https://www.johnrosen1.com/nginx1/)
 11. Auto [Trojan-GFW ***trojan://*** share link and QR code generate](https://github.com/trojan-gfw/trojan-url)
@@ -80,10 +80,14 @@ sudo systemctl status qbittorrent
 sudo systemctl status aria2
 journalctl -e -u trojan.service
 cat /var/log/v2ray/error.log
+cat /usr/local/etc/trojan/config.json
+cat /etc/nginx/conf.d/trojan.conf
 cat /etc/v2ray/config.json
+cat /etc/aria.conf
 crontab -l
 sudo ~/.acme.sh/acme.sh --cron
 timedatectl
+iptables -L -v
 ```
 ### Result Example
 ```
