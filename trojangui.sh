@@ -50,7 +50,7 @@ isresolved(){
     then
         myip=$2
     else
-        myip=`curl --silent http://dynamicdns.park-your-domain.com/getip`
+        myip=`curl -s http://dynamicdns.park-your-domain.com/getip`
     fi
     ips=(`nslookup $1 1.1.1.1 | grep -v 1.1.1.1 | grep Address | cut -d " " -f 2`)
     for ip in "${ips[@]}"
@@ -66,16 +66,16 @@ isresolved(){
 }
 ###############User input################
 userinput(){
-whiptail --title "User choose" --checklist --separate-output --nocancel "請按空格來選擇:(Trojan-GFW Nginx and BBR 為強制選項,已經包含)
-若不確定，請保持默認配置並回車" 20 78 8 \
+whiptail --ok-button "吾意已決 立即執行" --title "User choose" --checklist --separate-output --nocancel "請按空格來選擇:(Trojan-GFW Nginx and BBR 為強制選項,已經包含)
+若不確定，請保持默認配置並回車" 16 78 8 \
 "1" "系统升级(System Upgrade)" on \
-"2" "仅启用TLS1.3(TLS1.3 ONLY)" off \
-"3" "安裝V2ray(Vmess+Websocket+TLS+Nginx)" off \
-"4" "安裝Shadowsocks+V2ray-plugin+Websocket+TLS+Nginx" off \
-"5" "安裝Dnsmasq(Dns cache and adblock)" on \
-"6" "安裝Qbittorrent(Nginx Https Proxy)" off \
-"7" "安裝Aria2(Https mode)" off \
-"8" "安裝BBRPLUS 不推薦因為BBR已經包含(because BBR has been included)" off 2>results
+"2" "安裝Dnsmasq(Dns cache and adblock)" on \
+"3" "安裝Qbittorrent(Nginx Https Proxy)" on \
+"4" "安裝Aria2(Https mode)" on \
+"5" "安裝V2ray(Vmess+Websocket+TLS+Nginx)" off \
+"6" "安裝Shadowsocks+V2ray-plugin+Websocket+TLS+Nginx" off \
+"7" "安裝BBRPLUS 不推薦因為BBR已經包含(because BBR has been included)" off \
+"8" "仅启用TLS1.3(TLS1.3 ONLY)" off 2>results
 
 while read choice
 do
@@ -84,38 +84,38 @@ do
     system_upgrade=1
     ;;
     2) 
-    tls13only=1
-    ;;
-    3) 
-    install_v2ray=1
-    ;;
-    4) 
-    install_ss=1
-    ;;
-    5) 
     dnsmasq_install=1
     ;;
-    6)
+    3)
     install_qbt=1
     ;;
-    7)
+    4)
     install_aria=1
     ;;
-    8)
+    5) 
+    install_v2ray=1
+    ;;
+    6) 
+    install_ss=1
+    ;;
+    7)
     install_bbrplus=1
+    ;;
+    8) 
+    tls13only=1
     ;;
     *)
     ;;
   esac
 done < results
 while [[ -z $domain ]]; do
-domain=$(whiptail --inputbox --nocancel "朽木不可雕也，糞土之牆不可污也，快输入你的域名并按回车" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
+domain=$(whiptail --inputbox --nocancel "朽木不可雕也，糞土之牆不可污也，快輸入你的域名並按回車" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
 done
 while [[ -z $password1 ]]; do
-password1=$(whiptail --passwordbox --nocancel "別動不動就爆粗口，你把你媽揣兜了隨口就說，快输入你想要的密码一并按回车" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
+password1=$(whiptail --passwordbox --nocancel "別動不動就爆粗口，你把你媽揣兜了隨口就說，快輸入你想要的密碼一併按回車" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
 done
 while [[ -z $password2 ]]; do
-password2=$(whiptail --passwordbox --nocancel "你別逼我在我和你全家之間加動詞或者是名詞啊，快输入想要的密码二并按回车" 8 78 --title "password2 input" 3>&1 1>&2 2>&3)
+password2=$(whiptail --passwordbox --nocancel "你別逼我在我和你全家之間加動詞或者是名詞啊，快輸入想要的密碼二並按回車" 8 78 --title "password2 input" 3>&1 1>&2 2>&3)
 done
 if [[ $system_upgrade = 1 ]]; then
   if [[ $(lsb_release -cs) == stretch ]]; then
@@ -215,11 +215,11 @@ upgradesystem(){
     yum upgrade -y
  elif [[ $dist = ubuntu ]]; then
     export UBUNTU_FRONTEND=noninteractive 
-    apt-get upgrade -q -y
+    apt-get upgrade -qq -y
     apt-get autoremove -qq -y
  elif [[ $dist = debian ]]; then
     export DEBIAN_FRONTEND=noninteractive 
-    apt-get upgrade -q -y
+    apt-get upgrade -qq -y
     if [[ $debian10_install = 1 ]]; then
           cat > '/etc/apt/sources.list' << EOF
 #------------------------------------------------------------------------------#
@@ -298,10 +298,10 @@ EOF
     systemctl start iptables.service || true
  elif [[ $dist = ubuntu ]]; then
     export DEBIAN_FRONTEND=noninteractive
-    apt-get install iptables-persistent -q -y > /dev/null
+    apt-get install iptables-persistent -qq -y > /dev/null
  elif [[ $dist = debian ]]; then
     export DEBIAN_FRONTEND=noninteractive 
-    apt-get install iptables-persistent -q -y > /dev/null
+    apt-get install iptables-persistent -qq -y > /dev/null
  else
   clear
   TERM=ansi whiptail --title "error can't install iptables-persistent" --infobox "error can't install iptables-persistent" 8 78
@@ -381,7 +381,7 @@ deb-src https://nginx.org/packages/mainline/$dist/ $(lsb_release -cs) nginx
 EOF
   apt-get remove nginx-common -qq -y
   apt-get update -qq
-  apt-get install nginx -q -y
+  apt-get install nginx -qq -y
  else
   clear
   TERM=ansi whiptail --title "error can't install nginx" --infobox "error can't install nginx" 8 78
@@ -392,19 +392,19 @@ nginxconf
 clear
 #############################################
 if [[ $install_aria = 1 ]]; then
-  if [[ -f /usr/bin/aria2c ]]; then
+  if [[ -f /usr/local/bin/aria2c ]]; then
     :
     else
-      apt-get install build-essential nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev pkg-config libssl-dev autoconf automake autotools-dev autopoint libtool libuv1-dev libcppunit-dev -y
-      wget https://github.com/aria2/aria2/releases/download/release-1.35.0/aria2-1.35.0.tar.xz
+      apt-get install build-essential nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev pkg-config libssl-dev autoconf automake autotools-dev autopoint libtool libuv1-dev libcppunit-dev -qq -y
+      wget https://github.com/aria2/aria2/releases/download/release-1.35.0/aria2-1.35.0.tar.xz -q
       tar -xvf aria2-1.35.0.tar.xz
       rm aria2-1.35.0.tar.xz
       cd aria2-1.35.0
       ./configure --with-libuv --without-gnutls --with-openssl
       make -j $(grep "^core id" /proc/cpuinfo | sort -u | wc -l)
       make install
-      apt remove build-essential autoconf automake autotools-dev autopoint libtool -y
-      apt-get autoremove -y
+      apt remove build-essential autoconf automake autotools-dev autopoint libtool -qq -y
+      apt-get autoremove -qq -y
       touch /usr/local/bin/aria2.session
       mkdir /usr/share/nginx/aria2/
       chmod 755 /usr/share/nginx/aria2/
@@ -639,6 +639,7 @@ fi
 issuecert(){
   colorEcho ${INFO} "申请(issuing) let\'s encrypt certificate"
   if [[ -f /etc/trojan/trojan.crt ]]; then
+    myip=`curl -s http://dynamicdns.park-your-domain.com/getip`
     TERM=ansi whiptail --title "证书已有，跳过申请" --infobox "证书已有，跳过申请。。。" 8 78
     else
   mkdir /etc/trojan/ &
@@ -695,7 +696,7 @@ changepasswd(){
             "http/1.1"
         ],
         "reuse_session": true,
-        "session_ticket": true,
+        "session_ticket": false,
         "session_timeout": 600,
         "plain_http_response": "",
         "curves": "",
@@ -754,7 +755,7 @@ http {
 
   sendfile on;
   gzip on;
-  gzip_comp_level 5;
+  gzip_comp_level 8;
 
   include /etc/nginx/conf.d/*.conf; 
 }
@@ -1448,31 +1449,6 @@ v2rayclient(){
 EOF
   fi
 }
-##########Remove Trojan-Gfw##########
-uninstall(){
-  cd
-  systemctl stop trojan || true
-  systemctl disable trojan || true
-  rm -rf /usr/local/etc/trojan/* || true
-  rm -rf /etc/trojan/* || true
-  rm -rf /etc/systemd/system/trojan* || true
-  rm -rf ~/.acme.sh/$domain || true
-  systemctl stop v2ray  || true
-  systemctl disable v2ray || true
-  systemctl daemon-reload || true
-  wget https://install.direct/go.sh -q
-  sudo bash go.sh --remove
-  rm go.sh
-  systemctl stop nginx || true
-  systemctl disable nginx || true
-    if [[ $dist = centos ]]; then
-    yum remove nginx dnsmasq -y || true
-    else
-    apt purge nginx dnsmasq -p -y || true
-    rm -rf /etc/apt/sources.list.d/nginx.list
-  fi
-  sudo ~/.acme.sh/acme.sh --uninstall
-}
 ##########Check for update############
 checkupdate(){
   cd
@@ -1551,7 +1527,7 @@ sslink(){
     if [[ $install_qbt = 1 ]]; then
     echo
     colorEcho ${INFO} "你的Qbittorrent信息(Your Qbittorrent Download Information)"
-    colorEcho ${LINK} "https://$domain$qbtpath username admin password adminadmin"
+    colorEcho ${LINK} "https://$domain$qbtpath 用户名(username): admin 密碼(password): adminadmin"
     colorEcho ${INFO} "你的Qbittorrent信息（拉回本地用），非分享链接，仅供参考(Your Qbittorrent Download Information)"
     colorEcho ${LINK} "https://$domain:443$qbtdownloadpath"
   fi
@@ -1573,10 +1549,38 @@ timesync(){
       ntpdate -qu 1.hk.pool.ntp.org || true
   fi
 }
+##########Remove Trojan-Gfw##########
+uninstall(){
+  cd
+  systemctl stop trojan || true
+  systemctl disable trojan || true
+  rm -rf /usr/local/etc/trojan/* || true
+  rm -rf /etc/trojan/* || true
+  rm -rf /etc/systemd/system/trojan* || true
+  rm -rf ~/.acme.sh/$domain || true
+  systemctl stop v2ray  || true
+  systemctl disable v2ray || true
+  systemctl stop aria || true
+  systemctl disable aria || true
+  rm -rf /etc/aria.conf || true
+  systemctl daemon-reload || true
+  wget https://install.direct/go.sh -q
+  sudo bash go.sh --remove
+  rm go.sh
+  systemctl stop nginx || true
+  systemctl disable nginx || true
+    if [[ $dist = centos ]]; then
+    yum remove nginx dnsmasq -y || true
+    else
+    apt purge nginx dnsmasq -p -y || true
+    rm -rf /etc/apt/sources.list.d/nginx.list
+  fi
+  sudo ~/.acme.sh/acme.sh --uninstall
+}
 ##################################
 clear
 function advancedMenu() {
-    ADVSEL=$(whiptail --title "Trojan-Gfw Script Menu" --menu --nocancel "Choose an option RTFM: https://www.johnrosen1.com/trojan/" 25 78 16 \
+    ADVSEL=$(whiptail --ok-button "吾意已決 立即安排" --title "Trojan-Gfw Script Menu" --menu --nocancel "Choose an option RTFM: https://www.johnrosen1.com/trojan/" 12 78 4 \
         "1" "安裝(Install Trojan-GFW NGINX and other optional software)" \
         "2" "更新(Update  Trojan-GFW V2ray and Shadowsocks)" \
         "3" "卸載(Uninstall Everything)" \
@@ -1640,8 +1644,6 @@ echo 'LANG="zh_TW.UTF-8"'>/etc/default/locale
 fi
 export LANG="zh_TW.UTF-8"
 export LC_ALL="zh_TW.UTF-8"
-#export LANG=C.UTF-8 || true
-#export LANGUAGE=C.UTF-8 || true
 osdist || true
 advancedMenu
 echo "Program terminated."
