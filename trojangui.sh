@@ -29,6 +29,44 @@ rm -rf /lib/systemd/system/cloud-final.service || true
 rm -rf /lib/systemd/system/cloud-init-local.service || true
 rm -rf /lib/systemd/system/cloud-init.service || true
 systemctl daemon-reload || true
+  if [[ $(lsb_release -cs) == stretch ]]; then
+              cat > '/etc/apt/sources.list' << EOF
+#------------------------------------------------------------------------------#
+#                   OFFICIAL DEBIAN REPOS                    
+#------------------------------------------------------------------------------#
+
+###### Debian Main Repos
+deb http://deb.debian.org/debian/ oldstable main contrib non-free
+deb-src http://deb.debian.org/debian/ oldstable main contrib non-free
+
+deb http://deb.debian.org/debian/ oldstable-updates main contrib non-free
+deb-src http://deb.debian.org/debian/ oldstable-updates main contrib non-free
+
+deb http://deb.debian.org/debian-security oldstable/updates main
+deb-src http://deb.debian.org/debian-security oldstable/updates main
+
+deb http://ftp.debian.org/debian stretch-backports main
+deb-src http://ftp.debian.org/debian stretch-backports main
+EOF
+fi
+  if [[ $(lsb_release -cs) == bionic ]]; then
+              cat > '/etc/apt/sources.list' << EOF
+#------------------------------------------------------------------------------#
+#                            OFFICIAL UBUNTU REPOS                             #
+#------------------------------------------------------------------------------#
+
+###### Ubuntu Main Repos
+deb http://us.archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse 
+deb-src http://us.archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse 
+
+###### Ubuntu Update Repos
+deb http://us.archive.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse 
+deb http://us.archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse 
+deb-src http://us.archive.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse 
+deb-src http://us.archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse 
+EOF
+echo "nameserver 1.1.1.1" > '/etc/resolv.conf' || true
+  fi
 fi
 #######color code############
 ERROR="31m"      # Error message
@@ -66,16 +104,18 @@ isresolved(){
 }
 ###############User input################
 userinput(){
-whiptail --ok-button "吾意已決 立即執行" --title "User choose" --checklist --separate-output --nocancel "請按空格來選擇:(Trojan-GFW Nginx and BBR 為強制選項,已經包含)
-若不確定，請保持默認配置並回車" 16 78 8 \
+whiptail --clear --ok-button "吾意已決 立即執行" --title "User choose" --checklist --separate-output --nocancel "請按空格來選擇:(Trojan-GFW Nginx and BBR 為強制選項,已經包含)
+若不確定，請保持默認配置並回車" 17 78 9 \
 "1" "系统升级(System Upgrade)" on \
 "2" "安裝Dnsmasq(Dns cache and adblock)" on \
 "3" "安裝Qbittorrent(Nginx Https Proxy)" on \
-"4" "安裝Aria2(Https mode)" on \
-"5" "安裝V2ray(Vmess+Websocket+TLS+Nginx)" off \
-"6" "安裝Shadowsocks+V2ray-plugin+Websocket+TLS+Nginx" off \
-"7" "安裝BBRPLUS 不推薦因為BBR已經包含(because BBR has been included)" off \
-"8" "仅启用TLS1.3(TLS1.3 ONLY)" off 2>results
+"4" "安裝Bittorrent-Tracker(Nginx Https Proxy)" on \
+"5" "安裝Aria2(Https mode)" on \
+"6" "安裝Filebrowser(Nginx Https Proxy)" on \
+"7" "安裝V2ray(Vmess+Websocket+TLS+Nginx)" off \
+"8" "安裝Shadowsocks+V2ray-plugin+Websocket+TLS+Nginx" off \
+"9" "安裝BBRPLUS 不推薦因為BBR已經包含(because BBR has been included)" off \
+"10" "仅启用TLS1.3(TLS1.3 ONLY)" off 2>results
 
 while read choice
 do
@@ -90,33 +130,31 @@ do
     install_qbt=1
     ;;
     4)
+    install_tracker=1
+    ;;
+    5)
     install_aria=1
     ;;
-    5) 
+    6)
+    install_file=1
+    ;;
+    7) 
     install_v2ray=1
     ;;
-    6) 
+    8) 
     install_ss=1
     ;;
-    7)
+    9)
     install_bbrplus=1
     ;;
-    8) 
+    10) 
     tls13only=1
     ;;
     *)
     ;;
   esac
 done < results
-while [[ -z $domain ]]; do
-domain=$(whiptail --inputbox --nocancel "朽木不可雕也，糞土之牆不可污也，快輸入你的域名並按回車" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
-done
-while [[ -z $password1 ]]; do
-password1=$(whiptail --passwordbox --nocancel "別動不動就爆粗口，你把你媽揣兜了隨口就說，快輸入你想要的密碼一併按回車" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
-done
-while [[ -z $password2 ]]; do
-password2=$(whiptail --passwordbox --nocancel "你別逼我在我和你全家之間加動詞或者是名詞啊，快輸入想要的密碼二並按回車" 8 78 --title "password2 input" 3>&1 1>&2 2>&3)
-done
+####################################
 if [[ $system_upgrade = 1 ]]; then
   if [[ $(lsb_release -cs) == stretch ]]; then
     if (whiptail --title "System Upgrade" --yesno "Upgrade to Debian 10?" 8 78); then
@@ -132,22 +170,76 @@ if [[ $system_upgrade = 1 ]]; then
       debian9_install=0
     fi
   fi
+  if [[ $(lsb_release -cs) == xenial ]]; then
+    if (whiptail --title "System Upgrade" --yesno "Upgrade to Ubuntu 18.04?" 8 78); then
+      ubuntu18_install=1
+    else
+      ubuntu18_install=0
+    fi
+  fi
 fi
-
+#####################################
+while [[ -z $domain ]]; do
+domain=$(whiptail --inputbox --nocancel "朽木不可雕也，糞土之牆不可污也，快輸入你的域名並按回車" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
+done
+while [[ -z $password1 ]]; do
+password1=$(whiptail --passwordbox --nocancel "別動不動就爆粗口，你把你媽揣兜了隨口就說，快輸入你想要的密碼一併按回車" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
+done
+while [[ -z $password2 ]]; do
+password2=$(whiptail --passwordbox --nocancel "你別逼我在我和你全家之間加動詞或者是名詞啊，快輸入想要的密碼二並按回車" 8 78 --title "password2 input" 3>&1 1>&2 2>&3)
+done
+###################################
+    if [[ $install_qbt = 1 ]]; then
+      while [[ -z $qbtpath ]]; do
+      qbtpath=$(whiptail --inputbox --nocancel "Put your thinking cap on，快输入你的想要的Qbittorrent路径并按回车" 8 78 /qbt/ --title "Qbittorrent path input" 3>&1 1>&2 2>&3)
+      done
+    fi
+#####################################
+    if [[ $install_tracker = 1 ]]; then
+      while [[ -z $trackerpath ]]; do
+      trackerpath=$(whiptail --inputbox --nocancel "Put your thinking cap on，快输入你的想要的Bittorrent-Tracker路径并按回车" 8 78 /announce --title "Bittorrent-Tracker path input" 3>&1 1>&2 2>&3)
+      done
+      while [[ -z $trackerstatuspath ]]; do
+      trackerstatuspath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Bittorrent-Tracker状态路径并按回车" 8 78 /status --title "Bittorrent-Tracker download path input" 3>&1 1>&2 2>&3)
+      done
+    fi
+####################################
+    if [[ $install_aria = 1 ]]; then
+      while [[ -z $ariapath ]]; do
+      ariapath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Aria2 RPC路径并按回车" 8 78 /jsonrpc --title "Aria2 path input" 3>&1 1>&2 2>&3)
+      done
+      while [[ -z $ariapasswd ]]; do
+      ariapasswd=$(whiptail --passwordbox --nocancel "Put your thinking cap on.，快输入你的想要的Aria2 rpc token并按回车" 8 78 --title "Aria2 rpc token input" 3>&1 1>&2 2>&3)
+      done
+    fi
+####################################
+    if [[ $install_file = 1 ]]; then
+      while [[ -z $filepath ]]; do
+      filepath=$(whiptail --inputbox --nocancel "Put your thinking cap on，快输入你的想要的Filebrowser路径并按回车" 8 78 /files/ --title "Filebrowser path input" 3>&1 1>&2 2>&3)
+      done
+      #while [[ -z $fileuser ]]; do
+      #fileuser=$(whiptail --inputbox --nocancel "Put your thinking cap on，快输入你的想要的Filebrowser路径并按回车" 8 78 admin --title "Filebrowser username input" 3>&1 1>&2 2>&3)
+      #done
+      #while [[ -z $filepasswd ]]; do
+      #filepasswd=$(whiptail --passwordbox --nocancel "Put your thinking cap on，快输入你的想要的Filebrowser路径并按回车" 8 78 --title "Filebrowser passwd input" 3>&1 1>&2 2>&3)
+      #done
+    fi
+####################################
     if [[ $install_v2ray = 1 ]]; then
       while [[ -z $path ]]; do
-      path=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的V2ray Websocket路径并按回车" 8 78 /secret --title "Websocket path input" 3>&1 1>&2 2>&3)
+      path=$(whiptail --inputbox --nocancel "Put your thinking cap on，快输入你的想要的V2ray Websocket路径并按回车" 8 78 /secret --title "Websocket path input" 3>&1 1>&2 2>&3)
       done
       while [[ -z $alterid ]]; do
       alterid=$(whiptail --inputbox --nocancel "快输入你的想要的alter id大小(只能是数字)并按回车" 8 78 64 --title "alterid input" 3>&1 1>&2 2>&3)
       done
     fi
+####################################
     if [[ $install_ss = 1 ]]; then
       while [[ -z $sspath ]]; do
-      sspath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的ss-Websocket路径并按回车" 8 78 /ss --title "ss-Websocket path input" 3>&1 1>&2 2>&3)
+      sspath=$(whiptail --inputbox --nocancel "Put your thinking cap on，快输入你的想要的ss-Websocket路径并按回车" 8 78 /ss --title "ss-Websocket path input" 3>&1 1>&2 2>&3)
       done
       while [[ -z $sspasswd ]]; do
-      sspasswd=$(whiptail --passwordbox --nocancel "Put your thinking cap on.，快输入你的想要的ss密码并按回车" 8 78  --title "ss passwd input" 3>&1 1>&2 2>&3)
+      sspasswd=$(whiptail --passwordbox --nocancel "Put your thinking cap on，快输入你的想要的ss密码并按回车" 8 78  --title "ss passwd input" 3>&1 1>&2 2>&3)
       done
       ssen=$(whiptail --title "SS encrypt method Menu" --menu --nocancel "Choose an option RTFM: https://www.johnrosen1.com/trojan/" 25 78 16 \
       "1" "aes-128-gcm" \
@@ -166,28 +258,6 @@ fi
       esac
       else
       echo "Continuing"
-    fi
-    if [[ $install_qbt = 1 ]]; then
-      while [[ -z $qbtpath ]]; do
-      qbtpath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Qbittorrent路径并按回车" 8 78 /qbt/ --title "Qbittorrent path input" 3>&1 1>&2 2>&3)
-      done
-      while [[ -z $qbtdownloadpath ]]; do
-      qbtdownloadpath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Qbittorrent下载路径（拉回本地用）并按回车" 8 78 /qbtdownload --title "Qbittorrent download path input" 3>&1 1>&2 2>&3)
-      done
-    fi
-    if [[ $install_aria = 1 ]]; then
-      while [[ -z $ariapath ]]; do
-      ariapath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Aria2 RPC路径并按回车" 8 78 /jsonrpc --title "Aria2 path input" 3>&1 1>&2 2>&3)
-      done
-      while [[ -z $ariapasswd ]]; do
-      ariapasswd=$(whiptail --passwordbox --nocancel "Put your thinking cap on.，快输入你的想要的Aria2 rpc token并按回车" 8 78 --title "Aria2 rpc token input" 3>&1 1>&2 2>&3)
-      done
-      while [[ -z $ariaport ]]; do
-      ariaport=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Aria2 rpc port并按回车" 8 78 6800 --title "Aria2 rpc port input" 3>&1 1>&2 2>&3)
-      done
-      while [[ -z $ariadownloadpath ]]; do
-      ariadownloadpath=$(whiptail --inputbox --nocancel "Put your thinking cap on.，快输入你的想要的Aria2下载路径（拉回本地用）并按回车" 8 78 /aria2download --title "Qbittorrent download path input" 3>&1 1>&2 2>&3)
-      done
     fi
 }
 ###############OS detect####################
@@ -214,12 +284,32 @@ upgradesystem(){
   if [[ $dist = centos ]]; then
     yum upgrade -y
  elif [[ $dist = ubuntu ]]; then
-    export UBUNTU_FRONTEND=noninteractive 
-    apt-get upgrade -qq -y
+    export UBUNTU_FRONTEND=noninteractive
+    if [[ $ubuntu18_install = 1 ]]; then
+          cat > '/etc/apt/sources.list' << EOF
+#------------------------------------------------------------------------------#
+#                            OFFICIAL UBUNTU REPOS                             #
+#------------------------------------------------------------------------------#
+
+###### Ubuntu Main Repos
+deb http://us.archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse 
+deb-src http://us.archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse 
+
+###### Ubuntu Update Repos
+deb http://us.archive.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse 
+deb http://us.archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse 
+deb-src http://us.archive.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse 
+deb-src http://us.archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse 
+EOF
+    apt-get update
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y' || true
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y' || true
+    fi
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get upgrade -qq -y' || true
     apt-get autoremove -qq -y
  elif [[ $dist = debian ]]; then
     export DEBIAN_FRONTEND=noninteractive 
-    apt-get upgrade -qq -y
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get upgrade -qq -y' || true
     if [[ $debian10_install = 1 ]]; then
           cat > '/etc/apt/sources.list' << EOF
 #------------------------------------------------------------------------------#
@@ -240,7 +330,8 @@ deb http://ftp.debian.org/debian buster-backports main
 deb-src http://ftp.debian.org/debian buster-backports main
 EOF
     apt-get update
-    sudo sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y'
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y' || true
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y' || true
     fi
     if [[ $debian9_install = 1 ]]; then
           cat > '/etc/apt/sources.list' << EOF
@@ -262,9 +353,10 @@ deb http://ftp.debian.org/debian stretch-backports main
 deb-src http://ftp.debian.org/debian stretch-backports main
 EOF
     apt-get update
-    sudo sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y'
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y' || true
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y' || true
     fi
-    apt-get autoremove -qq -y
+    sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y' || true
  else
   clear
   TERM=ansi whiptail --title "error can't upgrade system" --infobox "error can't upgrade system" 8 78
@@ -289,19 +381,12 @@ SELINUXTYPE=targeted
 EOF
     firewall-cmd --zone=public --add-port=80/tcp --permanent  || true
     firewall-cmd --zone=public --add-port=443/tcp --permanent  || true
-    systemctl stop firewalld  || true
-    systemctl disable firewalld || true
-    yum install -y iptables-services || true
-    systemctl enable iptables || true
-    systemctl enable ip6tables || true
-    sudo /usr/libexec/iptables/iptables.init save || true
-    systemctl start iptables.service || true
  elif [[ $dist = ubuntu ]]; then
     export DEBIAN_FRONTEND=noninteractive
-    apt-get install iptables-persistent -qq -y > /dev/null
+    apt-get install iptables-persistent -qq -y > /dev/null || true
  elif [[ $dist = debian ]]; then
     export DEBIAN_FRONTEND=noninteractive 
-    apt-get install iptables-persistent -qq -y > /dev/null
+    apt-get install iptables-persistent -qq -y > /dev/null || true
  else
   clear
   TERM=ansi whiptail --title "error can't install iptables-persistent" --infobox "error can't install iptables-persistent" 8 78
@@ -328,7 +413,7 @@ installdependency(){
   if [[ $dist = centos ]]; then
     yum install -y sudo curl wget gnupg python3-qrcode unzip bind-utils epel-release chrony systemd
  elif [[ $dist = ubuntu ]] || [[ $dist = debian ]]; then
-    apt-get install sudo curl xz-utils wget apt-transport-https gnupg dnsutils lsb-release python-pil unzip resolvconf ntpdate systemd dbus ca-certificates locales iptables -qq -y
+    apt-get install sudo curl xz-utils wget apt-transport-https gnupg dnsutils lsb-release python-pil unzip resolvconf ntpdate systemd dbus ca-certificates locales iptables software-properties-common -qq -y
     if [[ $(lsb_release -cs) == xenial ]] || [[ $(lsb_release -cs) == trusty ]] || [[ $(lsb_release -cs) == jessie ]]; then
       TERM=ansi whiptail --title "Skipping generating QR code!" --infobox "你的操作系统不支持 python3-qrcode,Skipping generating QR code!" 8 78
       else
@@ -347,7 +432,7 @@ if [[ -f /etc/trojan/trojan.crt ]]; then
   if isresolved $domain
   then
   :
-  else 
+  else
   colorEcho ${ERROR} "域名解析验证失败，请自行验证解析是否成功并且请关闭Cloudfalare CDN并检查VPS控制面板防火墙(80 443)是否打开!!!"
   colorEcho ${ERROR} "Domain verification fail,Pleae turn off Cloudflare CDN and Open port 80 443 on VPS panel !!!"
   exit -1
@@ -391,6 +476,131 @@ fi
 nginxconf
 clear
 #############################################
+if [[ $install_qbt = 1 ]]; then
+  if [[ -f /usr/bin/qbittorrent-nox ]]; then
+    :
+    else
+  if [[ $dist = centos ]]; then
+  yum install -y epel-release
+  yum update -y
+  yum install qbittorrent-nox -y
+ elif [[ $dist = ubuntu ]]; then
+    export DEBIAN_FRONTEND=noninteractive
+    add-apt-repository ppa:qbittorrent-team/qbittorrent-stable -y
+    apt-get install qbittorrent-nox -qq -y
+ elif [[ $dist = debian ]]; then
+    export DEBIAN_FRONTEND=noninteractive 
+    apt-get install qbittorrent-nox -qq -y
+ else
+  clear
+  TERM=ansi whiptail --title "error can't install qbittorrent-nox" --infobox "error can't install qbittorrent-nox" 8 78
+    exit 1;
+ fi
+      cat > '/etc/systemd/system/qbittorrent.service' << EOF
+[Unit]
+Description=qBittorrent Daemon Service
+Documentation=man:qbittorrent-nox(1)
+Wants=network-online.target
+After=network-online.target nss-lookup.target
+
+[Service]
+# if you have systemd >= 240, you probably want to use Type=exec instead
+Type=simple
+User=root
+ExecStart=/usr/bin/qbittorrent-nox
+TimeoutStopSec=infinity
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+mkdir /usr/share/nginx/qbt/
+chmod 755 /usr/share/nginx/qbt/
+fi
+fi
+clear
+#############################################
+if [[ $install_tracker = 1 ]]; then
+  if [[ -f /usr/bin/bittorrent-tracker ]]; then
+    :
+    else
+  if [[ $dist = centos ]]; then
+  curl -sL https://rpm.nodesource.com/setup_13.x | bash -
+ elif [[ $dist = ubuntu ]]; then
+    export DEBIAN_FRONTEND=noninteractive
+    curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
+    apt-get install -qq -y nodejs
+ elif [[ $dist = debian ]]; then
+    export DEBIAN_FRONTEND=noninteractive 
+    curl -sL https://deb.nodesource.com/setup_13.x | bash -
+    apt-get install -qq -y nodejs
+ else
+  clear
+  TERM=ansi whiptail --title "error can't install qbittorrent-nox" --infobox "error can't install qbittorrent-nox" 8 78
+    exit 1;
+ fi
+ npm install -g bittorrent-tracker --silent
+      cat > '/etc/systemd/system/tracker.service' << EOF
+[Unit]
+Description=Bittorrent-Tracker Daemon Service
+Wants=network-online.target
+After=network-online.target nss-lookup.target
+
+[Service]
+# if you have systemd >= 240, you probably want to use Type=exec instead
+Type=simple
+User=root
+RemainAfterExit=yes
+ExecStart=/usr/bin/bittorrent-tracker --http --ws --trust-proxy
+TimeoutStopSec=infinity
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
+fi
+clear
+#############################################
+if [[ $install_file = 1 ]]; then
+  if [[ -f /usr/local/bin/filebrowser ]]; then
+    :
+    else
+  if [[ $dist = centos ]]; then
+  curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
+ elif [[ $dist = ubuntu ]] || [[ $dist = debian ]]; then
+    export DEBIAN_FRONTEND=noninteractive
+    curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
+ else
+  clear
+  TERM=ansi whiptail --title "error can't install filebrowser" --infobox "error can't install filebrowser" 8 78
+    exit 1;
+ fi
+       cat > '/etc/systemd/system/filebrowser.service' << EOF
+[Unit]
+Description=filebrowser browser
+After=network.target
+
+[Service]
+User=root
+Group=root
+ExecStart=/usr/local/bin/filebrowser -r /usr/share/nginx/ -d /etc/filebrowser/database.db -b $filepath -p 8081
+ExecReload=/usr/bin/kill -HUP \$MAINPID
+ExecStop=/usr/bin/kill -s STOP \$MAINPID
+RestartSec=3s
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+mkdir /etc/filebrowser/
+touch /etc/filebrowser/database.db
+fi
+fi
+clear
+#############################################
 if [[ $install_aria = 1 ]]; then
   if [[ -f /usr/local/bin/aria2c ]]; then
     :
@@ -401,7 +611,7 @@ if [[ $install_aria = 1 ]]; then
       rm aria2-1.35.0.tar.xz
       cd aria2-1.35.0
       ./configure --with-libuv --without-gnutls --with-openssl
-      make -j $(grep "^core id" /proc/cpuinfo | sort -u | wc -l)
+      make -j $(nproc --all)
       make install
       apt remove build-essential autoconf automake autotools-dev autopoint libtool -qq -y
       apt-get autoremove -qq -y
@@ -462,7 +672,7 @@ rpc-allow-origin-all=true
 rpc-listen-all=false
 event-poll=epoll
 # RPC监听端口, 端口被占用时可以修改, 默认:6800
-rpc-listen-port=$ariaport
+rpc-listen-port=6800
 # 设置的RPC授权令牌, v1.18.4新增功能, 取代 --rpc-user 和 --rpc-passwd 选项
 rpc-secret=$ariapasswd
 
@@ -555,6 +765,7 @@ no-resolv
 server=8.8.4.4#53
 server=1.1.1.1#53
 addn-hosts=/etc/dnsmasq.txt
+address=/cn/0.0.0.0
 interface=lo
 bind-interfaces
 cache-size=10000
@@ -571,51 +782,6 @@ clear
 #############################################
 if [[ $install_v2ray = 1 ]] || [[ $install_ss = 1 ]]; then
   installv2ray
-fi
-clear
-#############################################
-if [[ $install_qbt = 1 ]]; then
-  if [[ -f /usr/bin/qbittorrent-nox ]]; then
-    :
-    else
-  if [[ $dist = centos ]]; then
-  yum install -y epel-release
-  yum update -y
-  yum install qbittorrent-nox -y
- elif [[ $dist = ubuntu ]]; then
-    export DEBIAN_FRONTEND=noninteractive
-    add-apt-repository ppa:qbittorrent-team/qbittorrent-stable -y
-    apt-get install qbittorrent-nox -qq -y
- elif [[ $dist = debian ]]; then
-    export DEBIAN_FRONTEND=noninteractive 
-    apt-get install qbittorrent-nox -qq -y
- else
-  clear
-  TERM=ansi whiptail --title "error can't install qbittorrent-nox" --infobox "error can't install qbittorrent-nox" 8 78
-    exit 1;
- fi
-      cat > '/etc/systemd/system/qbittorrent.service' << EOF
-[Unit]
-Description=qBittorrent Daemon Service
-Documentation=man:qbittorrent-nox(1)
-Wants=network-online.target
-After=network-online.target nss-lookup.target
-
-[Service]
-# if you have systemd >= 240, you probably want to use Type=exec instead
-Type=simple
-User=root
-ExecStart=/usr/bin/qbittorrent-nox
-TimeoutStopSec=infinity
-Restart=on-failure
-RestartSec=3s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-mkdir /usr/share/nginx/qbt/
-chmod 755 /usr/share/nginx/qbt/
-fi
 fi
 clear
 #############################################
@@ -662,7 +828,7 @@ EOF
 }
 ##################################################
 renewcert(){
-  sudo ~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --log --reloadcmd "systemctl restart trojan"
+  sudo ~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --log --reloadcmd "systemctl reload trojan || true"
 }
 ##################################################
 changepasswd(){
@@ -773,6 +939,7 @@ server {
   listen 127.0.0.1:80;
     server_name $domain;
     if (\$http_user_agent = "") { return 444; }
+    if (\$host != "$domain") { return 404; }
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
     add_header X-Frame-Options SAMEORIGIN always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -788,6 +955,7 @@ if [[ $install_v2ray = 1 ]]; then
 echo "    location $path {" >> /etc/nginx/conf.d/trojan.conf
 echo "        #access_log off;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_redirect off;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_intercept_errors on;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_pass http://127.0.0.1:10000;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_http_version 1.1;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header Upgrade \$http_upgrade;" >> /etc/nginx/conf.d/trojan.conf
@@ -795,12 +963,14 @@ echo "        proxy_set_header Connection "upgrade";" >> /etc/nginx/conf.d/troja
 echo "        proxy_set_header Host \$http_host;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/conf.d/trojan.conf
+echo "        error_page 502 = @errpage;" >> /etc/nginx/conf.d/trojan.conf
 echo "        }" >> /etc/nginx/conf.d/trojan.conf
 fi
 if [[ $install_ss = 1 ]]; then
 echo "    location $sspath {" >> /etc/nginx/conf.d/trojan.conf
 echo "        #access_log off;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_redirect off;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_intercept_errors on;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_pass http://127.0.0.1:20000;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_http_version 1.1;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header Upgrade \$http_upgrade;" >> /etc/nginx/conf.d/trojan.conf
@@ -808,24 +978,22 @@ echo "        proxy_set_header Connection "upgrade";" >> /etc/nginx/conf.d/troja
 echo "        proxy_set_header Host \$http_host;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/conf.d/trojan.conf
+echo "        error_page 502 = @errpage;" >> /etc/nginx/conf.d/trojan.conf
 echo "        }" >> /etc/nginx/conf.d/trojan.conf
 fi
 if [[ $install_aria = 1 ]]; then
 echo "    location $ariapath {" >> /etc/nginx/conf.d/trojan.conf
 echo "        #access_log off;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_redirect off;" >> /etc/nginx/conf.d/trojan.conf
-echo "        proxy_pass http://127.0.0.1:$ariaport/jsonrpc;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_intercept_errors on;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_pass http://127.0.0.1:6800/jsonrpc;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_http_version 1.1;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header Upgrade \$http_upgrade;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header Connection "upgrade";" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header Host \$http_host;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/conf.d/trojan.conf
-echo "        }" >> /etc/nginx/conf.d/trojan.conf
-echo "    location $ariadownloadpath {" >> /etc/nginx/conf.d/trojan.conf
-echo "        alias              /usr/share/nginx/aria2/;" >> /etc/nginx/conf.d/trojan.conf
-echo "        autoindex on;" >> /etc/nginx/conf.d/trojan.conf
-echo "        autoindex_exact_size off;" >> /etc/nginx/conf.d/trojan.conf
+echo "        error_page 502 = @errpage;" >> /etc/nginx/conf.d/trojan.conf
 echo "        }" >> /etc/nginx/conf.d/trojan.conf
 fi
 if [[ $install_qbt = 1 ]]; then
@@ -838,21 +1006,47 @@ echo "        proxy_set_header        Referer                 '';" >> /etc/nginx
 echo "        proxy_set_header        Origin                  '';" >> /etc/nginx/conf.d/trojan.conf
 echo "        # add_header              X-Frame-Options         "SAMEORIGIN"; # not needed since 4.1.0" >> /etc/nginx/conf.d/trojan.conf
 echo "        }" >> /etc/nginx/conf.d/trojan.conf
-echo "    location $qbtdownloadpath {" >> /etc/nginx/conf.d/trojan.conf
-echo "        alias              /usr/share/nginx/qbt/;" >> /etc/nginx/conf.d/trojan.conf
-echo "        autoindex on;" >> /etc/nginx/conf.d/trojan.conf
-echo "        autoindex_exact_size off;" >> /etc/nginx/conf.d/trojan.conf
-echo "        }" >> /etc/nginx/conf.d/trojan.conf
-echo "    location /announce {" >> /etc/nginx/conf.d/trojan.conf
-echo "        proxy_pass http://127.0.0.1:9000;" >> /etc/nginx/conf.d/trojan.conf
+fi
+if [[ $install_file = 1 ]]; then
+echo "    location $filepath {" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_pass http://127.0.0.1:8081/;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_intercept_errors on;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_http_version 1.1;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header Upgrade \$http_upgrade;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header Connection "upgrade";" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header Host \$http_host;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/conf.d/trojan.conf
 echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/conf.d/trojan.conf
+echo "        error_page 502 = @errpage;" >> /etc/nginx/conf.d/trojan.conf
 echo "        }" >> /etc/nginx/conf.d/trojan.conf
 fi
+if [[ $install_tracker = 1 ]]; then
+echo "    location $trackerpath {" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_pass http://127.0.0.1:8000/announce;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_intercept_errors on;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_http_version 1.1;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header Upgrade \$http_upgrade;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header Connection "upgrade";" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header Host \$http_host;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/conf.d/trojan.conf
+echo "        error_page 502 = @errpage;" >> /etc/nginx/conf.d/trojan.conf
+echo "        }" >> /etc/nginx/conf.d/trojan.conf
+echo "    location $trackerstatuspath {" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_pass http://127.0.0.1:8000/stats;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_intercept_errors on;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_http_version 1.1;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header Upgrade \$http_upgrade;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header Connection "upgrade";" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header Host \$http_host;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/conf.d/trojan.conf
+echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/conf.d/trojan.conf
+echo "        error_page 502 = @errpage;" >> /etc/nginx/conf.d/trojan.conf
+echo "        }" >> /etc/nginx/conf.d/trojan.conf
+fi
+echo "        location @errpage {" >> /etc/nginx/conf.d/trojan.conf
+echo "        return 404;" >> /etc/nginx/conf.d/trojan.conf
+echo "        }" >> /etc/nginx/conf.d/trojan.conf
 echo "}" >> /etc/nginx/conf.d/trojan.conf
 echo "" >> /etc/nginx/conf.d/trojan.conf
 echo "server {" >> /etc/nginx/conf.d/trojan.conf
@@ -879,14 +1073,20 @@ rm -rf $htmlcode.zip
 start(){
   colorEcho ${INFO} "启动(starting) trojan-gfw and nginx ing..."
   systemctl daemon-reload || true
-  if [[ $install_v2ray = 1 ]] || [[ $install_ss = 1 ]]; then
-    systemctl start v2ray || true
-  fi
   if [[ $install_qbt = 1 ]]; then
     systemctl start qbittorrent.service || true
   fi
+  if [[ $install_tracker = 1 ]]; then
+    systemctl start tracker || true
+  fi
+  if [[ $install_file = 1 ]]; then
+    systemctl start filebrowser || true
+  fi
   if [[ $install_aria = 1 ]]; then
     systemctl start aria2 || true
+  fi
+  if [[ $install_v2ray = 1 ]] || [[ $install_ss = 1 ]]; then
+    systemctl start v2ray || true
   fi
   systemctl restart trojan || true
   systemctl restart nginx || true
@@ -894,14 +1094,20 @@ start(){
 bootstart(){
   colorEcho ${INFO} "设置开机自启(auto boot start) ing..."
   systemctl daemon-reload || true
-  if [[ $install_v2ray = 1 ]] || [[ $install_ss = 1 ]]; then
-    systemctl enable v2ray || true
-  fi
   if [[ $install_qbt = 1 ]]; then
     systemctl enable qbittorrent.service || true
   fi
+  if [[ $install_tracker = 1 ]]; then
+    systemctl enable tracker || true
+  fi
+  if [[ $install_file = 1 ]]; then
+    systemctl enable filebrowser || true
+  fi
   if [[ $install_aria = 1 ]]; then
     systemctl enable aria2 || true
+  fi
+  if [[ $install_v2ray = 1 ]] || [[ $install_ss = 1 ]]; then
+    systemctl enable v2ray || true
   fi
   systemctl enable nginx || true
   systemctl enable trojan || true
@@ -911,7 +1117,7 @@ tcp-bbr(){
   colorEcho ${INFO} "设置(setting up) TCP-BBR boost technology"
   cat > '/etc/sysctl.d/99-sysctl.conf' << EOF
 net.ipv6.conf.all.accept_ra = 2
-fs.file-max = 51200
+#fs.file-max = 51200
 net.core.rmem_max = 67108864
 net.core.wmem_max = 67108864
 net.core.rmem_default = 65536
@@ -952,6 +1158,12 @@ then
   :
 else
 echo "ulimit -SHn 51200" >> /etc/profile
+fi
+if grep -q "pam_limits.so" /etc/pam.d/common-session
+then
+  :
+else
+echo "session required pam_limits.so" >> /etc/pam.d/common-session || true
 fi
 systemctl daemon-reload
 if [[ $install_bbrplus = 1 ]]; then
@@ -1255,7 +1467,7 @@ trojanclient(){
         "no_delay": true,
         "keep_alive": true,
         "reuse_port": false,
-        "fast_open": true,
+        "fast_open": false,
         "fast_open_qlen": 20
     }
 }
@@ -1290,15 +1502,21 @@ EOF
         "no_delay": true,
         "keep_alive": true,
         "reuse_port": false,
-        "fast_open": true,
+        "fast_open": false,
         "fast_open_qlen": 20
     }
 }
 EOF
+cd
+echo "安装成功，享受吧！(Install Success! Enjoy it ! )多行不義必自斃，子姑待之。RTFM: https://www.johnrosen1.com/trojan/" > result
 colorEcho ${INFO} "你的(Your) Trojan-Gfw 客户端(client) config profile 1"
 cat /etc/trojan/client1.json
 colorEcho ${INFO} "你的(Your) Trojan-Gfw 客户端(client) config profile 2"
 cat /etc/trojan/client2.json
+echo "你的(Your) Trojan-Gfw 客户端(client) config profile 1" >> result
+echo "$(cat /etc/trojan/client1.json)" >> result
+echo "你的(Your) Trojan-Gfw 客户端(client) config profile 2" >> result
+echo "$(cat /etc/trojan/client2.json)" >> result
 }
 ##########V2ray Client Config################
 v2rayclient(){
@@ -1454,7 +1672,7 @@ checkupdate(){
   cd
   if [[ -f /usr/bin/v2ray/v2ray ]]; then
     wget https://install.direct/go.sh -q
-    sudo bash go.sh
+    bash go.sh
     rm go.sh
   fi
   if [[ -f /usr/local/bin/trojan ]]; then
@@ -1462,19 +1680,24 @@ checkupdate(){
   fi
 }
 ###########Trojan share link########
-trojanlink(){
+sharelink(){
   cd
   colorEcho ${INFO} "你的 Trojan-Gfw 分享链接(Share Link)1 is"
   colorEcho ${LINK} "trojan://$password1@$domain:443"
   colorEcho ${INFO} "你的 Trojan-Gfw 分享链接(Share Link)2 is"
   colorEcho ${LINK} "trojan://$password2@$domain:443"
-if [[ $dist = centos ]]
-then
-colorEcho ${ERROR} "QR generate Fail ! Because your os does not support python3-qrcode,Please consider change your os!"
-elif [[ $(lsb_release -cs) = xenial ]] || [[ $(lsb_release -cs) = trusty ]] || [[ $(lsb_release -cs) = jessie ]]
-then
-colorEcho ${ERROR} "QR generate Fail ! Because your os does not support python3-qrcode,Please consider change your os!"
-else
+  echo "你的 Trojan-Gfw 分享链接(Share Link)1 is" >> result
+  echo "trojan://$password1@$domain:443" >> result
+  echo "你的 Trojan-Gfw 分享链接(Share Link)2 is" >> result
+  echo "trojan://$password2@$domain:443" >> result
+  if [[ $dist = centos ]]
+  then
+  colorEcho ${ERROR} "QR generate Fail ! Because your os does not support python3-qrcode,Please consider change your os!"
+  elif [[ $(lsb_release -cs) = xenial ]] || [[ $(lsb_release -cs) = trusty ]] || [[ $(lsb_release -cs) = jessie ]]
+  then
+  colorEcho ${ERROR} "QR generate Fail ! Because your os does not support python3-qrcode,Please consider change your os!"
+  else
+  apt-get install python3-qrcode -qq -y > /dev/null
   wget https://github.com/trojan-gfw/trojan-url/raw/master/trojan-url.py -q
   chmod +x trojan-url.py
   #./trojan-url.py -i /etc/trojan/client.json
@@ -1486,19 +1709,73 @@ else
   colorEcho ${LINK} "https://$domain/$password1.png"
   colorEcho ${INFO} "请访问下面的链接获取Trojan-GFW 二维码(QR code) 2"
   colorEcho ${LINK} "https://$domain/$password2.png"
+  echo "请访问下面的链接获取Trojan-GFW 二维码(QR code) 1" >> result
+  echo "https://$domain/$password1.png" >> result
+  echo "请访问下面的链接获取Trojan-GFW 二维码(QR code) 2" >> result
+  echo "https://$domain/$password2.png" >> result
   rm -rf trojan-url.py
   rm -rf $password1.png || true
   rm -rf $password2.png || true
-fi
-colorEcho ${INFO} "https://github.com/trojan-gfw/trojan/wiki/Mobile-Platforms"
-colorEcho ${INFO} "https://github.com/trojan-gfw/trojan/releases/latest"
-}
-########V2ray share link############
-v2raylink(){
+  apt-get remove python3-qrcode -qq -y > /dev/null
+  fi
+  colorEcho ${INFO} "https://github.com/trojan-gfw/trojan/wiki/Mobile-Platforms"
+  colorEcho ${INFO} "https://github.com/trojan-gfw/trojan/releases/latest"
+  echo "https://github.com/trojan-gfw/trojan/wiki/Mobile-Platforms" >> result
+  echo "https://github.com/trojan-gfw/trojan/releases/latest" >> result
+  if [[ $install_qbt = 1 ]]; then
+    echo
+    colorEcho ${INFO} "你的Qbittorrent信息(Your Qbittorrent Information)"
+    colorEcho ${LINK} "https://$domain$qbtpath 用户名(username): admin 密碼(password): adminadmin"
+    colorEcho ${INFO} "请手动将Qbittorrent下载目录改为 /usr/share/nginx/qbt/ ！！！否则拉回本地将不起作用！！！"
+    colorEcho ${INFO} "请手动将Qbittorrent中的Bittorrent加密選項改为 強制加密 ！！！否则會被迅雷吸血！！！"
+    colorEcho ${LINK} "请手动在Qbittorrent中添加Trackers https://github.com/ngosang/trackerslist ！！！否则速度不會快的！！！"
+    echo "" >> result
+    echo "你的Qbittorrent信息(Your Qbittorrent Information)" >> result
+    echo "https://$domain$qbtpath 用户名(username): admin 密碼(password): adminadmin" >> result
+    echo "请手动将Qbittorrent下载目录改为 /usr/share/nginx/qbt/ ！！！否则拉回本地将不起作用！！！" >> result
+    echo "请手动将Qbittorrent中的Bittorrent加密選項改为 強制加密 ！！！否则會被迅雷吸血！！！" >> result
+    echo "请手动在Qbittorrent中添加Trackers https://github.com/ngosang/trackerslist ！！！否则速度不會快的！！！" >> result
+  fi
+  if [[ $install_tracker = 1 ]]; then
+    echo
+    colorEcho ${INFO} "你的Bittorrent-Tracker信息(Your Bittorrent-Tracker Information)"
+    colorEcho ${LINK} "https://$domain:443$trackerpath"
+    colorEcho ${LINK} "http://$domain:8000/announce"
+    colorEcho ${INFO} "你的Bittorrent-Tracker信息（查看状态用）(Your Bittorrent-Tracker Status Information)"
+    colorEcho ${LINK} "https://$domain:443$trackerstatuspath"
+    colorEcho ${INFO} "请手动将此Tracker添加于你的BT客户端中，发布种子时记得填上即可。"
+    colorEcho ${INFO} "请记得将此Tracker分享给你的朋友们。"
+    echo "" >> result
+    echo "你的Bittorrent-Tracker信息(Your Bittorrent-Tracker Information)" >> result
+    echo "https://$domain:443$trackerpath" >> result
+    echo "http://$domain:8000/announce" >> result
+    echo "你的Bittorrent-Tracker信息（查看状态用）(Your Bittorrent-Tracker Status Information)" >> result
+    echo "https://$domain:443$trackerstatuspath" >> result
+    echo "请手动将此Tracker添加于你的BT客户端中，发布种子时记得填上即可。" >> result
+    echo "请记得将此Tracker分享给你的朋友们。" >> result
+  fi
+  if [[ $install_aria = 1 ]]; then
+    echo
+    colorEcho ${INFO} "你的Aria信息，非分享链接，仅供参考(Your Aria2 Information)"
+    colorEcho ${LINK} "$ariapasswd@https://$domain:443$ariapath"
+    echo "" >> result
+    echo "你的Aria信息，非分享链接，仅供参考(Your Aria2 Information)" >> result
+    echo "$ariapasswd@https://$domain:443$ariapath" >> result
+  fi
+  if [[ $install_file = 1 ]]; then
+    echo
+    colorEcho ${INFO} "你的Filebrowser信息，非分享链接，仅供参考(Your Filebrowser Information)"
+    colorEcho ${LINK} "https://$domain:443$filepath 用户名(username): admin 密碼(password): admin"
+    echo "" >> result
+    echo "你的Filebrowser信息，非分享链接，仅供参考(Your Filebrowser Information)" >> result
+    echo "https://$domain:443$filepath 用户名(username): admin 密碼(password): admin" >> result
+  fi
   if [[ $install_v2ray = 1 ]]; then
   echo
   v2rayclient
   colorEcho ${INFO} "你的(Your) V2ray 客户端(client) config profile"
+  echo "你的(Your) V2ray 客户端(client) config profile" >> result
+  echo "$(cat /etc/v2ray/client.json)" >> result
   cat /etc/v2ray/client.json
   echo
   wget https://github.com/boypt/vmess2json/raw/master/json2vmess.py -q
@@ -1511,33 +1788,34 @@ EOF
   cp /etc/v2ray/$uuid.txt /usr/share/nginx/html/
   colorEcho ${INFO} "你的V2ray分享链接(Your V2ray Share Link)"
   cat /etc/v2ray/$uuid.txt
+  echo "" >> result
+  echo "你的V2ray分享链接(Your V2ray Share Link)" >> result
+  echo "$(cat /etc/v2ray/$uuid.txt)" >> result
   colorEcho ${INFO} "请访问下面的链接(Link Below)获取你的V2ray分享链接"
   colorEcho ${LINK} "https://$domain/$uuid.txt"
+  echo "请访问下面的链接(Link Below)获取你的V2ray分享链接" >> result
+  echo "https://$domain/$uuid.txt" >> result
   rm -rf json2vmess.py
-  colorEcho ${INFO} "Please manually run cat /etc/v2ray/$uuid.txt to show share link again!"      
-fi
-}
-##########SS Link###########
-sslink(){
+  colorEcho ${INFO} "Please manually run cat /etc/v2ray/$uuid.txt to show share link again!"
+  colorEcho ${LINK} "https://play.google.com/store/apps/details?id=fun.kitsunebi.kitsunebi4android"
+  colorEcho ${LINK} "https://github.com/v2ray/v2ray-core/releases/latest"
+  echo "Please manually run cat /etc/v2ray/$uuid.txt to show share link again!" >> result
+  echo "https://play.google.com/store/apps/details?id=fun.kitsunebi.kitsunebi4android" >> result
+  echo "https://github.com/v2ray/v2ray-core/releases/latest" >> result
+  fi
   if [[ $install_ss = 1 ]]; then
     echo
     colorEcho ${INFO} "你的SS信息，非分享链接，仅供参考(Your Shadowsocks Information)"
     colorEcho ${LINK} "$ssmethod:$sspasswd@https://$domain:443$sspath"
+    colorEcho ${LINK} "https://play.google.com/store/apps/details?id=com.github.shadowsocks.plugin.v2ray"
+    colorEcho ${LINK} "https://github.com/shadowsocks/v2ray-plugin"
+    echo "" >> result
+    echo "你的SS信息，非分享链接，仅供参考(Your Shadowsocks Information)" >> result
+    echo "$ssmethod:$sspasswd@https://$domain:443$sspath" >> result
+    echo "https://play.google.com/store/apps/details?id=com.github.shadowsocks.plugin.v2ray"
+    echo "https://github.com/shadowsocks/v2ray-plugin" >> result
   fi
-    if [[ $install_qbt = 1 ]]; then
-    echo
-    colorEcho ${INFO} "你的Qbittorrent信息(Your Qbittorrent Download Information)"
-    colorEcho ${LINK} "https://$domain$qbtpath 用户名(username): admin 密碼(password): adminadmin"
-    colorEcho ${INFO} "你的Qbittorrent信息（拉回本地用），非分享链接，仅供参考(Your Qbittorrent Download Information)"
-    colorEcho ${LINK} "https://$domain:443$qbtdownloadpath"
-  fi
-  if [[ $install_aria = 1 ]]; then
-    echo
-    colorEcho ${INFO} "你的Aria信息，非分享链接，仅供参考(Your Aria2 Information)"
-    colorEcho ${LINK} "$ariapasswd@https://$domain:443$ariapath"
-    colorEcho ${INFO} "你的Aria信息（拉回本地用），非分享链接，仅供参考(Your Aria2 Download Information)"
-    colorEcho ${LINK} "https://$domain:443$ariadownloadpath"
-  fi
+  echo "请手动运行 cat result 来重新显示结果" >> result
 }
 ##################################
 timesync(){
@@ -1565,7 +1843,7 @@ uninstall(){
   rm -rf /etc/aria.conf || true
   systemctl daemon-reload || true
   wget https://install.direct/go.sh -q
-  sudo bash go.sh --remove
+  bash go.sh --remove
   rm go.sh
   systemctl stop nginx || true
   systemctl disable nginx || true
@@ -1580,7 +1858,7 @@ uninstall(){
 ##################################
 clear
 function advancedMenu() {
-    ADVSEL=$(whiptail --ok-button "吾意已決 立即安排" --title "Trojan-Gfw Script Menu" --menu --nocancel "Choose an option RTFM: https://www.johnrosen1.com/trojan/" 12 78 4 \
+    ADVSEL=$(whiptail --clear --ok-button "吾意已決 立即安排" --title "Trojan-Gfw Script Menu" --menu --nocancel "Choose an option RTFM: https://www.johnrosen1.com/trojan/" 12 78 4 \
         "1" "安裝(Install Trojan-GFW NGINX and other optional software)" \
         "2" "更新(Update  Trojan-GFW V2ray and Shadowsocks)" \
         "3" "卸載(Uninstall Everything)" \
@@ -1592,6 +1870,7 @@ function advancedMenu() {
         userinput
         clear
         installdependency
+        timesync || true
         clear
         openfirewall
         clear
@@ -1601,16 +1880,12 @@ function advancedMenu() {
         clear
         changepasswd || true
         bootstart
-        clear
-        timesync || true
+        tcp-bbr || true
         clear
         trojanclient || true
-        trojanlink || true
-        v2raylink || true
-        sslink || true
-        tcp-bbr || true
+        sharelink || true
         start
-        whiptail --title "Install Success" --msgbox "安装成功，享受吧！(Install Success! Enjoy it ! )多行不義必自斃，子姑待之。RTFM: https://www.johnrosen1.com/trojan/" 8 78
+        whiptail --title "Install Success" --textbox --scrolltext result 39 100
         ;;
         2)
         cd
@@ -1646,4 +1921,3 @@ export LANG="zh_TW.UTF-8"
 export LC_ALL="zh_TW.UTF-8"
 osdist || true
 advancedMenu
-echo "Program terminated."
