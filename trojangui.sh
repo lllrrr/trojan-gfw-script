@@ -5,6 +5,11 @@ if [[ $(id -u) != 0 ]]; then
     exit 1
 fi
 
+if [[ $(uname -m 2> /dev/null) != x86_64 ]]; then
+    echo Please run this script on x86_64 machine.
+    exit 1
+fi
+
 if [[ -f /etc/init.d/aegis ]] || [[ -f /etc/systemd/system/aliyun.service ]]; then
 systemctl stop aegis || true
 systemctl disable aegis || true
@@ -105,6 +110,48 @@ isresolved(){
 }
 ###############User input################
 userinput(){
+if (whiptail --title "api" --yesno "使用 (use) api?推荐，可用于申请wildcard证书" 8 78); then
+  dns_api=1
+  APIOPTION=$(whiptail --clear --ok-button "吾意已決 立即執行" --title "API choose" --menu --separate-output "請按空格來選擇" 18 78 10 \
+"1" "Cloudflare Using the global api key " \
+"2" "Use Namesilo.com API" \
+"3" "Use Aliyun domain API"  3>&1 1>&2 2>&3)
+
+  case $APIOPTION in
+    1)
+    cf_api=1
+    while [[ -z $CF_Key ]]; do
+    CF_Key=$(whiptail --passwordbox --nocancel "https://dash.cloudflare.com/profile/api-tokens，快輸入你CF_Key併按回車" 8 78 --title "CF_Key input" 3>&1 1>&2 2>&3)
+    done
+    while [[ -z $CF_Email ]]; do
+    CF_Email=$(whiptail --inputbox --nocancel "https://dash.cloudflare.com/profile，快輸入你CF_Email併按回車" 8 78 --title "CF_Key input" 3>&1 1>&2 2>&3)
+    done
+    export CF_Key="$CF_Key"
+    export CF_Email="$CF_Email"
+    ;;
+    2)
+    namesilo_api=1
+    while [[ -z $Namesilo_Key ]]; do
+    Namesilo_Key=$(whiptail --passwordbox --nocancel "https://www.namesilo.com/account_api.php，快輸入你的Namesilo_Key併按回車" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
+    done
+    export Namesilo_Key="$Namesilo_Key"
+    ;;
+    3)
+    ali_api=1
+    while [[ -z $Ali_Key ]]; do
+    Ali_Key=$(whiptail --passwordbox --nocancel "https://ak-console.aliyun.com/#/accesskey，快輸入你的Ali_Key併按回車" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
+    done
+    while [[ -z $Ali_Secret ]]; do
+    Ali_Secret=$(whiptail --passwordbox --nocancel "https://ak-console.aliyun.com/#/accesskey，快輸入你的Ali_Secret併按回車" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
+    done
+    export Ali_Key="$Ali_Key"
+    export Ali_Secret="$Ali_Secret"
+    ;;
+    *)
+    ;;
+  esac
+  fi
+################################################
 whiptail --clear --ok-button "吾意已決 立即執行" --title "User choose" --checklist --separate-output --nocancel "請按空格來選擇:(Trojan-GFW Nginx and BBR 為強制選項,已經包含)
 若不確定，請保持默認配置並回車" 18 78 10 \
 "1" "系统升级(System Upgrade)" on \
@@ -186,6 +233,30 @@ fi
 #####################################
 while [[ -z $domain ]]; do
 domain=$(whiptail --inputbox --nocancel "朽木不可雕也，糞土之牆不可污也，快輸入你的域名並按回車" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
+if [[ $domain == "" ]]; then
+  ip=$(curl -s https://api.ipify.org)
+  if [[ $dist = centos ]]; then
+    yum install -y -q bind-utils
+    else
+    apt-get install dnsutils -y -qq
+  fi
+  domain=$(host $ip)
+  if [[ -f /etc/trojan/trojan.crt ]] || [[ $dns_api == 1 ]]; then
+  :
+  else
+  if isresolved $domain
+  then
+  :
+  else
+  clear
+  whiptail --title "Domain verification fail" --msgbox --scrolltext "域名解析验证失败，请自行验证解析是否成功并且请关闭Cloudfalare CDN并检查VPS控制面板防火墙(80 443)是否打开!!!Domain verification fail,Pleae turn off Cloudflare CDN and Open port 80 443 on VPS panel !!!" 8 78
+  colorEcho ${ERROR} "域名解析验证失败，请自行验证解析是否成功并且请关闭Cloudfalare CDN并检查VPS控制面板防火墙(80 443)是否打开!!!"
+  colorEcho ${ERROR} "Domain verification fail,Pleae turn off Cloudflare CDN and Open port 80 443 on VPS panel !!!"
+  exit -1
+  clear
+  fi  
+fi
+fi
 done
 while [[ -z $password1 ]]; do
 password1=$(whiptail --passwordbox --nocancel "別動不動就爆粗口，你把你媽揣兜了隨口就說，快輸入你想要的密碼一併按回車" 8 78 --title "password1 input" 3>&1 1>&2 2>&3)
@@ -254,6 +325,9 @@ done
       done
       while [[ -z $sspasswd ]]; do
       sspasswd=$(whiptail --passwordbox --nocancel "Put your thinking cap on，快输入你的想要的ss密码并按回车" 8 78  --title "ss passwd input" 3>&1 1>&2 2>&3)
+      if [[ $sspasswd == "" ]]; then
+      sspasswd="123456789"
+      fi
       done
       ssen=$(whiptail --title "SS encrypt method Menu" --menu --nocancel "Choose an option RTFM: https://www.johnrosen1.com/trojan/" 12 78 3 \
       "1" "aes-128-gcm" \
@@ -280,14 +354,19 @@ osdist(){
 set -e
  if cat /etc/*release | grep ^NAME | grep -q CentOS; then
     dist=centos
+    pack="yum -y -q"
  elif cat /etc/*release | grep ^NAME | grep -q Red; then
     dist=centos
+    pack="yum -y -q"
  elif cat /etc/*release | grep ^NAME | grep -q Fedora; then
     dist=centos
+    pack="yum -y -q"
  elif cat /etc/*release | grep ^NAME | grep -q Ubuntu; then
     dist=ubuntu
+    pack="apt-get -y -qq"
  elif cat /etc/*release | grep ^NAME | grep -q Debian; then
     dist=debian
+    pack="apt-get -y -qq"
  else
   TERM=ansi whiptail --title "OS SUPPORT" --infobox "OS NOT SUPPORTED, couldn't install Trojan-gfw" 8 78
     exit 1;
@@ -380,57 +459,15 @@ EOF
     exit 1;
  fi
 }
-#########Open ports########################
-openfirewall(){
-  colorEcho ${INFO} "设置 firewall"
-  #sh -c 'echo "1\n" | DEBIAN_FRONTEND=noninteractive update-alternatives --config iptables'
-  iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT || true
-  iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT || true
-  iptables -I OUTPUT -j ACCEPT || true
-  ip6tables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT || true
-  ip6tables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT || true
-  ip6tables -I OUTPUT -j ACCEPT || true
-  if [[ $dist = centos ]]; then
-      setenforce 0  || true
-          cat > '/etc/selinux/config' << EOF
-SELINUX=disabled
-SELINUXTYPE=targeted
-EOF
-    firewall-cmd --zone=public --add-port=80/tcp --permanent  || true
-    firewall-cmd --zone=public --add-port=443/tcp --permanent  || true
-    systemctl stop firewalld || true
-    systemctl disable firewalld || true
- elif [[ $dist = ubuntu ]]; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get install iptables-persistent -qq -y > /dev/null || true
- elif [[ $dist = debian ]]; then
-    export DEBIAN_FRONTEND=noninteractive 
-    apt-get install iptables-persistent -qq -y > /dev/null || true
- else
-  clear
-  TERM=ansi whiptail --title "error can't install iptables-persistent" --infobox "error can't install iptables-persistent" 8 78
-    exit 1;
- fi
-}
 ##########install dependencies#############
 installdependency(){
     colorEcho ${INFO} "Updating system"
-  if [[ $dist = centos ]]; then
-    yum update -y
- elif [[ $dist = ubuntu ]]; then
-    apt-get update -qq
- elif [[ $dist = debian ]]; then
-    apt-get update -qq
- else
-  clear
-  TERM=ansi whiptail --title "error can't update system" --infobox "error can't update system" 8 78
-    exit 1;
- fi
+    $pack update
 ###########################################
   clear
   colorEcho ${INFO} "安装所有必备软件(Install all necessary Software)"
   if [[ $dist = centos ]]; then
-    yum install -y sudo curl wget gnupg python3-qrcode unzip bind-utils epel-release chrony systemd socat
+    yum install -y -q sudo curl wget gnupg python3-qrcode unzip bind-utils epel-release chrony systemd socat
  elif [[ $dist = ubuntu ]] || [[ $dist = debian ]]; then
     apt-get install sudo curl xz-utils wget apt-transport-https gnupg dnsutils lsb-release python-pil unzip resolvconf ntpdate systemd dbus ca-certificates locales iptables software-properties-common -qq -y
     if [[ $(lsb_release -cs) == xenial ]] || [[ $(lsb_release -cs) == trusty ]] || [[ $(lsb_release -cs) == jessie ]]; then
@@ -445,7 +482,7 @@ installdependency(){
  fi
  clear
 #############################################
-if [[ -f /etc/trojan/trojan.crt ]]; then
+if [[ -f /etc/trojan/trojan.crt ]] || [[ $dns_api == 1 ]]; then
   :
   else
   if isresolved $domain
@@ -470,13 +507,13 @@ if [[ $tls13only = 1 ]]; then
 cipher_server="TLS_AES_128_GCM_SHA256"
 fi
 #####################################################
-  if [[ -f /etc/apt/sources.list.d/nginx.list ]]; then
+  if [[ -f /etc/apt/sources.list.d/nginx.list ]] || [[ -f /usr/sbin/nginx ]]; then
     :
     else
       clear
       colorEcho ${INFO} "安装Nginx(Install Nginx ing)"
   if [[ $dist = centos ]]; then
-  yum install nginx -y
+  yum install nginx -y -q
   systemctl stop nginx || true
  elif [[ $dist = debian ]] || [[ $dist = ubuntu ]]; then
   wget https://nginx.org/keys/nginx_signing.key -q
@@ -490,13 +527,85 @@ EOF
   apt-get remove nginx-common -qq -y
   apt-get update -qq
   apt-get install nginx -qq -y
+  if [[ $dist != ubuntu ]]; then
+    rm -rf /etc/apt/sources.list.d/nginx.list
+    apt-get update -qq
+  fi 
  else
   clear
   TERM=ansi whiptail --title "error can't install nginx" --infobox "error can't install nginx" 8 78
     exit 1;
  fi
 fi
-nginxconf
+  cat > '/lib/systemd/system/nginx.service' << EOF
+[Unit]
+Description=The NGINX HTTP and reverse proxy server
+After=syslog.target network.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=forking
+PIDFile=/run/nginx.pid
+ExecStartPre=/usr/sbin/nginx -t
+ExecStart=/usr/sbin/nginx
+ExecReload=/usr/sbin/nginx -s reload
+ExecStop=/bin/kill -s QUIT $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+if [[ $dist = centos ]]; then
+  wget https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/nginx_centos
+  cp -f nginx_centos /usr/sbin/nginx
+  rm nginx_centos
+  mkdir /var/cache/nginx/
+  elif [[ $dist = ubuntu ]]; then
+    echo ""
+  else
+wget https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/nginx -q
+cp -f nginx /usr/sbin/nginx
+rm nginx
+fi
+chmod +x /usr/sbin/nginx
+    cat > '/etc/nginx/nginx.conf' << EOF
+user nginx;
+worker_processes auto;
+
+error_log /var/log/nginx/error.log warn;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+events {
+  worker_connections 3000;
+  use epoll;
+  multi_accept on;
+}
+
+http {
+  aio threads;
+  charset UTF-8;
+  tcp_nodelay on;
+  tcp_nopush on;
+  server_tokens off;
+
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  access_log /var/log/nginx/access.log;
+
+
+  log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+    '\$status $body_bytes_sent "\$http_referer" '
+    '"\$http_user_agent" "\$http_x_forwarded_for"';
+
+  sendfile on;
+  gzip on;
+  gzip_comp_level 8;
+
+  include /etc/nginx/conf.d/*.conf;
+  client_max_body_size 10G;
+}
+EOF
 clear
 #############################################
 if [[ $install_qbt = 1 ]]; then
@@ -506,9 +615,9 @@ if [[ $install_qbt = 1 ]]; then
     clear
     colorEcho ${INFO} "安装Qbittorrent(Install Qbittorrent ing)"
   if [[ $dist = centos ]]; then
-  yum install -y epel-release
-  yum update -y
-  yum install qbittorrent-nox -y
+  yum install -y -q epel-release
+  yum update -y -q
+  yum install qbittorrent-nox -y -q
  elif [[ $dist = ubuntu ]]; then
     export DEBIAN_FRONTEND=noninteractive
     add-apt-repository ppa:qbittorrent-team/qbittorrent-stable -y
@@ -554,6 +663,7 @@ if [[ $install_tracker = 1 ]]; then
       colorEcho ${INFO} "安装Bittorrent-tracker(Install bittorrent-tracker ing)"
   if [[ $dist = centos ]]; then
   curl -sL https://rpm.nodesource.com/setup_13.x | bash -
+  sudo yum install -y -q nodejs
  elif [[ $dist = ubuntu ]]; then
     export DEBIAN_FRONTEND=noninteractive
     curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
@@ -598,7 +708,7 @@ if [[ $install_file = 1 ]]; then
       clear
       colorEcho ${INFO} "安装Filebrowser(Install Filebrowser ing)"
   if [[ $dist = centos ]]; then
-  curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash || true
  elif [[ $dist = ubuntu ]] || [[ $dist = debian ]]; then
     export DEBIAN_FRONTEND=noninteractive
     curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
@@ -636,21 +746,29 @@ if [[ $install_aria = 1 ]]; then
     else
       clear
       colorEcho ${INFO} "安装aria2(Install aria2 ing)"
-      #apt-get install build-essential nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev pkg-config libssl-dev autoconf automake autotools-dev autopoint libtool libuv1-dev libcppunit-dev -qq -y
+      if [[ $dist = centos ]]; then
+      yum install -y -q nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev pkg-config libssl-dev libtool libuv1-dev libcppunit-dev || true
+      wget https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/aria2c_centos.xz -q 
+      xz --decompress aria2c_centos.xz
+      cp aria2c_centos /usr/local/bin/aria2c
+      chmod +x /usr/local/bin/aria2c
+      rm aria2c_centos
+        else
       apt-get install nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev pkg-config libssl-dev libtool libuv1-dev libcppunit-dev -qq -y
-      #wget https://github.com/aria2/aria2/releases/download/release-1.35.0/aria2-1.35.0.tar.xz -q
       wget https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/aria2c.xz -q 
       xz --decompress aria2c.xz
-      #rm aria2c.xz
       cp aria2c /usr/local/bin/aria2c
       chmod +x /usr/local/bin/aria2c
       rm aria2c
+      #apt-get install build-essential nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev pkg-config libssl-dev autoconf automake autotools-dev autopoint libtool libuv1-dev libcppunit-dev -qq -y
+      #wget https://github.com/aria2/aria2/releases/download/release-1.35.0/aria2-1.35.0.tar.xz -q
       #cd aria2-1.35.0
       #./configure --without-gnutls --with-openssl
       #make -j $(nproc --all)
       #make install
       #apt remove build-essential autoconf automake autotools-dev autopoint libtool -qq -y
       apt-get autoremove -qq -y
+      fi
       touch /usr/local/bin/aria2.session
       mkdir /usr/share/nginx/aria2/
       chmod 755 /usr/share/nginx/aria2/
@@ -750,7 +868,7 @@ if [[ $dnsmasq_install = 1 ]]; then
       clear
       colorEcho ${INFO} "安装dnsmasq(Install dnsmasq ing)"
     if [[ $dist = centos ]]; then
-    yum install -y dnsmasq  || true
+    yum install -y -q dnsmasq  || true
  elif [[ $dist = ubuntu ]] || [[ $dist = debian ]]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get install dnsmasq -qq -y || true
@@ -831,7 +949,6 @@ if [[ $install_netdata = 1 ]]; then
       colorEcho ${INFO} "安装Netdata(Install netdata ing)"
       bash <(curl -Ss https://my-netdata.io/kickstart.sh) --dont-wait --disable-telemetry
       sed -i 's/# bind to = \*/bind to = 127.0.0.1/g' /etc/netdata/netdata.conf
-      #sed -i 's/SEARCH_REGEX/REPLACEMENT/g' INPUTFILE
       systemctl restart netdata
   fi
 fi
@@ -854,6 +971,38 @@ fi
   fi
   clear
 }
+#########Open ports########################
+openfirewall(){
+  colorEcho ${INFO} "设置 firewall"
+  #sh -c 'echo "1\n" | DEBIAN_FRONTEND=noninteractive update-alternatives --config iptables'
+  iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT || true
+  iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT || true
+  iptables -I OUTPUT -j ACCEPT || true
+  ip6tables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT || true
+  ip6tables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT || true
+  ip6tables -I OUTPUT -j ACCEPT || true
+  if [[ $dist = centos ]]; then
+      setenforce 0  || true
+          cat > '/etc/selinux/config' << EOF
+SELINUX=disabled
+SELINUXTYPE=targeted
+EOF
+    firewall-cmd --zone=public --add-port=80/tcp --permanent  || true
+    firewall-cmd --zone=public --add-port=443/tcp --permanent  || true
+    systemctl stop firewalld || true
+    systemctl disable firewalld || true
+ elif [[ $dist = ubuntu ]]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get install iptables-persistent -qq -y > /dev/null || true
+ elif [[ $dist = debian ]]; then
+    export DEBIAN_FRONTEND=noninteractive 
+    apt-get install iptables-persistent -qq -y > /dev/null || true
+ else
+  clear
+  TERM=ansi whiptail --title "error can't install iptables-persistent" --infobox "error can't install iptables-persistent" 8 78
+    exit 1;
+ fi
+}
 ##################################################
 issuecert(){
   clear
@@ -875,11 +1024,16 @@ server {
 }
 EOF
   systemctl start nginx || true
-  if [[ $dist = centos ]]; then
-  systemctl stop nginx || true
-  ~/.acme.sh/acme.sh --issue -d $domain --standalone -k ec-256 --force --reloadcmd "systemctl reload trojan || true"
+  if [[ $dns_api == 1 ]]; then
+    if [[ $cf_api == 1 ]]; then
+    ~/.acme.sh/acme.sh --issue --dns dns_cf -d $domain -k ec-256 --force --log --reloadcmd "systemctl reload trojan || true"
+    elif [[ $namesilo_api == 1 ]]; then
+    ~/.acme.sh/acme.sh --issue --dns dns_namesilo --dnssleep 300 -d $domain -k ec-256 --force --log --reloadcmd "systemctl reload trojan || true"
+    elif [[ $ali_api == 1 ]]; then
+    ~/.acme.sh/acme.sh --issue --dns dns_ali -d $domain -k ec-256 --force --log --reloadcmd "systemctl reload trojan || true"
+    fi
     else
-  ~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --log --reloadcmd "systemctl reload trojan || true"
+    ~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --log --reloadcmd "systemctl reload trojan || true"  
   fi
   ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /etc/trojan/trojan.crt --keypath /etc/trojan/trojan.key --ecc
   chmod +r /etc/trojan/trojan.key
@@ -916,7 +1070,7 @@ changepasswd(){
         "key": "/etc/trojan/trojan.key",
         "key_password": "",
         "cipher": "$cipher_server",
-        "cipher_tls13":"TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
+        "cipher_tls13": "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
         "prefer_server_cipher": true,
         "alpn": [
             "http/1.1"
@@ -944,46 +1098,6 @@ changepasswd(){
         "username": "trojan",
         "password": ""
     }
-}
-EOF
-}
-##########Nginx conf####################
-nginxconf(){
-    cat > '/etc/nginx/nginx.conf' << EOF
-user nginx;
-worker_processes auto;
-
-error_log /var/log/nginx/error.log warn;
-#pid /var/run/nginx.pid;
-include /etc/nginx/modules-enabled/*.conf;
-events {
-  worker_connections 3000;
-  use epoll;
-  multi_accept on;
-}
-
-http {
-  #aio threads; //Please enable it by yourself,disabled for compatibility.
-  charset UTF-8;
-  tcp_nodelay on;
-  tcp_nopush on;
-  server_tokens off;
-
-  include /etc/nginx/mime.types;
-  default_type application/octet-stream;
-
-  access_log /var/log/nginx/access.log;
-
-
-  log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
-    '\$status $body_bytes_sent "\$http_referer" '
-    '"\$http_user_agent" "\$http_x_forwarded_for"';
-
-  sendfile on;
-  gzip on;
-  gzip_comp_level 8;
-
-  include /etc/nginx/conf.d/*.conf; 
 }
 EOF
 }
@@ -1844,7 +1958,7 @@ sharelink(){
   fi
   if [[ $install_v2ray = 1 ]]; then
   echo
-  apt-get install qrencode -y > /dev/null
+  $pack install qrencode > /dev/null || true
   v2rayclient
   colorEcho ${INFO} "你的(Your) V2ray 客户端(client) config profile"
   echo "你的(Your) V2ray 客户端(client) config profile" >> result
@@ -1876,20 +1990,32 @@ EOF
   echo "相关链接（Related Links）" >> result
   echo "https://play.google.com/store/apps/details?id=fun.kitsunebi.kitsunebi4android" >> result
   echo "https://github.com/v2ray/v2ray-core/releases/latest" >> result
-  apt-get remove qrencode -y > /dev/null
+  $pack remove qrencode > /dev/null || true
   fi
   if [[ $install_ss = 1 ]]; then
     echo
+    $pack install qrencode > /dev/null || true
+    sspath2="$(echo "$sspath" | cut -c2-999)"
+    ssinfo="$(echo $ssmethod:$sspasswd@$domain:443 | base64)"
+    sslink1="ss://$ssinfo?plugin=v2ray%3Bpath%3D%2F$sspath2%3Bhost%3D$domain%3Btls#ss+v2ray-plugin"
+    sslink2="ss://$(echo $ssmethod:$sspasswd | base64)@$domain:443#$domain"
+    qrencode -l L -v 1 -o /usr/share/nginx/html/qr1-$sspasswd.png "$sslink1"
+    qrencode -l L -v 1 -o /usr/share/nginx/html/qr2-$sspasswd.png "$sslink2"
     echo "" >> result
     echo "你的SS信息，非分享链接，仅供参考(Your Shadowsocks Information)" >> result
     echo "$ssmethod:$sspasswd@https://$domain:443$sspath" >> result
     echo "" >> result
     echo "你的SS分享链接，仅供参考(Your Shadowsocks Share link)" >> result
-    sspath2="$(echo "$sspath" | cut -c2-999)"
-    echo -n "ss://" >> result; echo -n "$ssmethod:$sspasswd@$domain:443" | base64 >> result; echo "?plugin=v2ray%3Bpath%3D%2F$sspath2%3Bhost%3D$domain%3Btls#ss+v2ray-plugin" >> result
+    echo "$sslink1" >> result
+    echo "$sslink2" >> result
+    echo "请访问下面的链接(Link Below)获取你的SS二维码" >> result
+    echo "https://$domain/qr1-$sspasswd.png" >> result
+    echo "https://$domain/qr2-$sspasswd.png" >> result
     echo "相关链接（Related Links）" >> result
+    echo "https://play.google.com/store/apps/details?id=fun.kitsunebi.kitsunebi4android" >> result
     echo "https://play.google.com/store/apps/details?id=com.github.shadowsocks.plugin.v2ray" >> result
     echo "https://github.com/shadowsocks/v2ray-plugin" >> result
+    $pack remove qrencode > /dev/null || true
   fi
   echo "请手动运行 cat result 来重新显示结果" >> result
 }
@@ -1902,6 +2028,7 @@ timesync(){
     else
       ntpdate -qu 1.hk.pool.ntp.org || true
   fi
+  rm results || true
 }
 ##########Remove Trojan-Gfw##########
 uninstall(){
@@ -1916,6 +2043,12 @@ uninstall(){
   systemctl disable v2ray || true
   systemctl stop aria || true
   systemctl disable aria || true
+  systemctl stop tracker || true
+  systemctl disable tracker || true
+  systemctl stop filebrowser || true
+  systemctl disable filebrowser || true
+  systemctl stop netdata || true
+  systemctl disable netdata || true
   rm -rf /etc/aria.conf || true
   systemctl daemon-reload || true
   wget https://install.direct/go.sh -q
@@ -1924,7 +2057,7 @@ uninstall(){
   systemctl stop nginx || true
   systemctl disable nginx || true
     if [[ $dist = centos ]]; then
-    yum remove nginx dnsmasq -y || true
+    yum remove nginx dnsmasq -y -q || true
     else
     apt purge nginx dnsmasq -p -y || true
     rm -rf /etc/apt/sources.list.d/nginx.list
