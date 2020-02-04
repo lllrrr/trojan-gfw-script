@@ -16,8 +16,8 @@ yum update -y && yum install sudo newt curl -y && sudo -i
 ```
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/trojangui.sh)"
 ```
-![menu](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/menu.png)
-![choose](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/options.png)
+![menu](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/menu1.png)
+![choose](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/menu_option.png)
 
 #### 運行前的要求:
 1. 請 **使用root用戶運行**(sudo -i)
@@ -38,13 +38,12 @@ echo "nameserver 1.1.1.1" > '/etc/resolv.conf'
 ## 如果你覺得有用 , 請給star ★, 謝謝!
 #### 脚本特性:
 
-1. 全自動安裝並配置 **[Trojan-GFW](https://github.com/trojan-gfw/trojan) 以及 [NGINX](https://www.nginx.com/)**
+1. 全自動安裝並配置 **[NGINX](https://www.nginx.com/)**
 2. 全自動申请并续签 [let's encrypt 证书](https://letsencrypt.org/) and **全自动在证书续签完成后reload Trojan-GFW**
 3. 全自動 OS 探測 **支援 [Debian](https://www.debian.org/) [Ubuntu](https://ubuntu.com/) Centos**
 4. 全自動 [domain resolve verification](https://en.wikipedia.org/wiki/Nslookup)
 5. 全自動 [iptables](https://en.wikipedia.org/wiki/Iptables)(包括 ipv6) 防火墙配置以及 [iptables-persistent](https://github.com/zertrin/iptables-persistent)
 6. 全自動 生成 [客戶端配置文件](https://trojan-gfw.github.io/trojan/config) (包括 Trojan-GFW 和 V2ray )
-7. 全自動 启用 [TCP Turbo](https://github.com/shadowsocks/shadowsocks/wiki/Optimizing-Shadowsocks) ( **[TCP-BBR](https://github.com/google/bbr)** 已包含)
 8. 全自動 [Nginx 效能優化](https://www.johnrosen1.com/nginx1/)
 9. 全自動 [Trojan-GFW ***trojan://***  分享链接 以及 二维码 生成](https://github.com/trojan-gfw/trojan-url)
 10. 全自動 [https 301 redirect](https://en.wikipedia.org/wiki/HTTP_301) 不會影響證書的續簽
@@ -54,13 +53,14 @@ echo "nameserver 1.1.1.1" > '/etc/resolv.conf'
 14. 全自動 启用 ***[時間校準](https://www.freedesktop.org/software/systemd/man/timedatectl.html)***
 15. 全自動 启用 ***Fail Restart*** 
 16. 全自動 [卸載 Aliyun Aegis](https://www.johnrosen1.com/ali-iso/)
-17. 支援 全自动 安裝並配置 **[Dnsmasq](https://en.wikipedia.org/wiki/Dnsmasq) [Qbittorrent](https://www.qbittorrent.org/) [Bittorrent-Tracker](https://github.com/webtorrent/bittorrent-tracker) [Aria2](https://github.com/aria2/aria2) [Filebrowser](https://github.com/filebrowser/filebrowser) [Netdata](https://github.com/netdata/netdata) [V2ray](https://www.v2ray.com/index.html) and [Shadowsocks](https://shadowsocks.org/en/index.html)([V2ray-plugin](https://github.com/shadowsocks/v2ray-plugin))**
+17. 支援 全自动 安裝並配置 **[Trojan-GFW](https://github.com/trojan-gfw/trojan) [Dnsmasq](https://en.wikipedia.org/wiki/Dnsmasq) [Qbittorrent](https://www.qbittorrent.org/) [Bittorrent-Tracker](https://github.com/webtorrent/bittorrent-tracker) [Aria2](https://github.com/aria2/aria2) [Filebrowser](https://github.com/filebrowser/filebrowser) [Netdata](https://github.com/netdata/netdata) [V2ray](https://www.v2ray.com/index.html) and [Shadowsocks](https://shadowsocks.org/en/index.html)([V2ray-plugin](https://github.com/shadowsocks/v2ray-plugin)) [TOR](https://famicoman.com/2018/01/03/configuring-and-monitoring-a-tor-middle-relay/)**
 18. 支援 全自動 [V2ray ***vmess://*** 分享链接 生成](https://github.com/boypt/vmess2json) + Shadowsocks ss:// 分享链接 和 二维码 生成
 19. 支援 全自動 [***vmess or ss + tls + websocket + nginx*** 配置](https://guide.v2fly.org/advanced/wss_and_web.html)
+7.  支援 全自動 启用 [TCP Turbo](https://github.com/shadowsocks/shadowsocks/wiki/Optimizing-Shadowsocks) ( **[TCP-BBR](https://github.com/google/bbr)** 已包含)
 20. 支援 ***[BBRPLUS](https://github.com/chiakge/Linux-NetSpeed)***
 21. 支援 ***[TLS1.3 ONLY](https://wiki.openssl.org/index.php/TLS1.3)***
 22. 支援 手动 检查更新 包括 Trojan-gfw v2ray ss
-23. 支援 完全卸載
+23. 支援 完全/部分 卸載
 
 **如果你需要更多功能, 请 open a Github issue / 提交pull request.(Centos相关issue将被列为低优先级)**
 
@@ -76,9 +76,12 @@ https://www.johnrosen1.com/qbt/
 
 ```
 https://github.com/trojan-gfw/trojan-quickstart
+sudo nginx -t
 sudo systemctl status trojan
 sudo systemctl status nginx
 sudo systemctl status v2ray
+sudo systemctl status tor
+sudo systemctl status tor@default
 sudo systemctl status dnsmasq
 sudo systemctl status qbittorrent
 sudo systemctl status tracker
