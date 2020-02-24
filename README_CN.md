@@ -7,7 +7,7 @@
 ```
 apt-get update && apt-get install sudo whiptail curl locales -y && sudo -i
 ```
-安裝依賴(Centos)
+安裝依賴(Centos,不推荐)
 ```
 yum update -y && yum install sudo newt curl -y && sudo -i
 ```
@@ -26,9 +26,8 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/johnrosen1/trojan-g
 ```
 echo "nameserver 1.1.1.1" > '/etc/resolv.conf'
 ```
-5. 請 **手动将Qbittorrent下载路径改为 /usr/share/nginx/qbt/ !**
 
-6. 若使用自定义证书只需与密钥一起放置于/etc/trojan文件夹中即可，无需修改名称 。
+5. 若使用自定义证书只需与密钥一起放置于/etc/trojan文件夹中即可，无需修改名称 。
 
 #### [Telegram](https://telegram.org/) 頻道 以及 群組
 

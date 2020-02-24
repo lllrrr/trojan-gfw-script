@@ -27,6 +27,8 @@
 
 clear
 
+set +e
+
 if [[ $(id -u) != 0 ]]; then
 	echo Please run this script as root.
 	exit 1
@@ -38,33 +40,45 @@ if [[ $(uname -m 2> /dev/null) != x86_64 ]]; then
 fi
 
 if [[ -f /etc/init.d/aegis ]] || [[ -f /etc/systemd/system/aliyun.service ]]; then
-systemctl stop aegis || true
-systemctl disable aegis || true
-rm -rf /etc/init.d/aegis || true
-systemctl stop CmsGoAgent.service || true
-systemctl disable CmsGoAgent.service || true
-rm -rf /etc/systemd/system/CmsGoAgent.service || true
-systemctl stop aliyun || true
-systemctl disable aliyun || true
-systemctl stop cloud-config || true
-systemctl disable cloud-config || true
-systemctl stop cloud-final || true
-systemctl disable cloud-final || true
-systemctl stop cloud-init-local.service || true
-systemctl disable cloud-init-local.service || true
-systemctl stop cloud-init || true
-systemctl disable cloud-init || true
-systemctl stop exim4 || true
-systemctl disable exim4 || true
-systemctl stop apparmor || true
-systemctl disable apparmor || true
-rm -rf /etc/systemd/system/aliyun.service || true
-rm -rf /lib/systemd/system/cloud-config.service || true
-rm -rf /lib/systemd/system/cloud-config.target || true
-rm -rf /lib/systemd/system/cloud-final.service || true
-rm -rf /lib/systemd/system/cloud-init-local.service || true
-rm -rf /lib/systemd/system/cloud-init.service || true
-systemctl daemon-reload || true
+systemctl stop aegis
+systemctl stop CmsGoAgent.service
+systemctl stop aliyun
+systemctl stop cloud-config
+systemctl stop cloud-final
+systemctl stop cloud-init-local.service
+systemctl stop cloud-init
+systemctl stop ecs_mq
+systemctl stop exim4
+systemctl stop apparmor
+systemctl stop sysstat
+systemctl disable aegis
+systemctl disable CmsGoAgent.service
+systemctl disable aliyun
+systemctl disable cloud-config
+systemctl disable cloud-final
+systemctl disable cloud-init-local.service
+systemctl disable cloud-init
+systemctl disable ecs_mq
+systemctl disable exim4
+systemctl disable apparmor
+systemctl disable sysstat
+rm -rf /etc/init.d/aegis
+rm -rf /etc/systemd/system/CmsGoAgent.service
+rm -rf /etc/systemd/system/aliyun.service
+rm -rf /lib/systemd/system/cloud-config.service
+rm -rf /lib/systemd/system/cloud-config.target
+rm -rf /lib/systemd/system/cloud-final.service
+rm -rf /lib/systemd/system/cloud-init-local.service
+rm -rf /lib/systemd/system/cloud-init.service
+rm -rf /lib/systemd/system/ecs_mq.service
+rm -rf /usr/local/aegis
+rm -rf /usr/local/cloudmonitor
+rm -rf /usr/sbin/aliyun_installer
+rm -rf /usr/sbin/aliyun-service
+rm -rf /usr/sbin/aliyun-service.backup
+rm -rf /sbin/ecs_mq_rps_rfs
+apt-get purge sysstat exim4 chrony aliyun-assist telnet -y
+systemctl daemon-reload
 	if [[ $(lsb_release -cs) == stretch ]]; then
 		cat > '/etc/apt/sources.list' << EOF
 #------------------------------------------------------------------------------#
@@ -101,7 +115,7 @@ deb http://us.archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe
 deb-src http://us.archive.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse 
 deb-src http://us.archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse 
 EOF
-echo "nameserver 1.1.1.1" > '/etc/resolv.conf' || true
+echo "nameserver 1.1.1.1" > '/etc/resolv.conf'
 	fi
 fi
 #######color code############
@@ -119,7 +133,9 @@ setlanguage(){
 	if [[ ! -d /root/.trojan/ ]]; then
 		mkdir /root/.trojan/
 	fi
-	language="$( jq -r '.language' "/root/.trojan/language.json" )"
+	if [[ -f /root/.trojan/language.json ]]; then
+		language="$( jq -r '.language' "/root/.trojan/language.json" )"
+	fi
 	while [[ -z $language ]]; do
 	export LANGUAGE="C.UTF-8"
 	export LANG="C.UTF-8"
@@ -175,9 +191,9 @@ export LANGUAGE="en_US.UTF-8"
 export LANG="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
 fi
-#chattr +i /etc/locale.gen || true
+#chattr +i /etc/locale.gen
 #dpkg-reconfigure --frontend=noninteractive locales
-#chattr +i /etc/default/locale || true
+#chattr +i /etc/default/locale
 }
 #############################
 installacme(){
@@ -213,6 +229,7 @@ isresolved(){
 }
 ########################################################
 issuecert(){
+	set +e
 	clear
 	colorEcho ${INFO} "申请(issuing) let\'s encrypt certificate"
 	if [[ -f /etc/trojan/trojan.crt ]] && [[ -f /etc/trojan/trojan.key ]]; then
@@ -231,7 +248,10 @@ server {
 }
 EOF
 	nginx -t
-	systemctl start nginx || true
+	systemctl start nginx
+	curl -s https://get.acme.sh | sh
+	~/.acme.sh/acme.sh --upgrade --auto-upgrade
+	clear
 	colorEcho ${INFO} "测试证书申请ing(test issuing) let\'s encrypt certificate"
 	~/.acme.sh/acme.sh --issue --nginx -d $domain -k ec-256 --force --test --log --reloadcmd "systemctl reload trojan || true && nginx -s reload"
 	if [[ $? != 0 ]]; then
@@ -248,6 +268,7 @@ EOF
 }
 ###############User input################
 prasejson(){
+	set +e
 	cat > '/root/.trojan/config.json' << EOF
 {
   "installed": "1",
@@ -261,32 +282,13 @@ prasejson(){
   "ariapasswd": "$ariapasswd",
   "filepath": "$filepath",
   "netdatapath": "$netdatapath",
-  "path": "$path",
-  "alterid": "$alterid",
-  "tor_name": "$tor_name",
-  "sspath": "$sspath",
-  "sspasswd": "$sspasswd",
-  "ssmethod": "$ssmethod",
-  "install_trojan": "$install_trojan",
-  "install_qbt": "$install_qbt",
-  "install_tracker": "$install_tracker",
-  "install_aria": "$install_aria",
-  "install_file": "$install_file",
-  "install_netdata": "$install_netdata",
-  "install_tor": "$install_tor"
+  "tor_name": "$tor_name"
 }
 EOF
 }
 ################################################
 readconfig(){
 	domain="$( jq -r '.domain' "/root/.trojan/config.json" )"
-    install_trojan="$( jq -r '.install_trojan' "/root/.trojan/config.json" )"
-    install_qbt="$( jq -r '.install_qbt' "/root/.trojan/config.json" )"
-    install_tracker="$( jq -r '.install_tracker' "/root/.trojan/config.json" )"
-    install_aria="$( jq -r '.install_aria' "/root/.trojan/config.json" )"
-    install_file="$( jq -r '.install_file' "/root/.trojan/config.json" )"
-    install_netdata="$( jq -r '.install_netdata' "/root/.trojan/config.json" )"
-    install_tor="$( jq -r '.install_tor' "/root/.trojan/config.json" )"
     password1="$( jq -r '.password1' "/root/.trojan/config.json" )"
     password2="$( jq -r '.password2' "/root/.trojan/config.json" )"
     qbtpath="$( jq -r '.qbtpath' "/root/.trojan/config.json" )"
@@ -296,11 +298,7 @@ readconfig(){
     ariapasswd="$( jq -r '.ariapasswd' "/root/.trojan/config.json" )"
     filepath="$( jq -r '.filepath' "/root/.trojan/config.json" )"
     netdatapath="$( jq -r '.netdatapath' "/root/.trojan/config.json" )"
-    path="$( jq -r '.path' "/root/.trojan/config.json" )"
-    alterid="$( jq -r '.alterid' "/root/.trojan/config.json" )"
-    tor_name="$( jq -r '.tor_name' "/root/.trojan/config.json" )"
-    sspasswd="$( jq -r '.sspasswd' "/root/.trojan/config.json" )"
-    ssmethod="$( jq -r '.ssmethod' "/root/.trojan/config.json" )"   
+    tor_name="$( jq -r '.tor_name' "/root/.trojan/config.json" )"  
 }
 ####################################
 userinput(){
@@ -315,13 +313,27 @@ fi
 install_status="$( jq -r '.installed' "/root/.trojan/config.json" )"
 colorEcho ${INFO} "被墙检测ing"
 
-ping 114.114.114.114 -c 2 -q && curl -s http://tencent.com/ --connect-timeout 60 &> /dev/null
+ping 114.114.114.114 -c 2 -q
 
 if [[ $? -ne 0 ]]; then
-	colorEcho ${ERROR} "你的ip被墙了，快滚！"
-	colorEcho ${ERROR} "请自己去换ip!"
-    exit 1
+	114status="0"
 fi
+ping 223.5.5.5 -c 2 -q
+if [[ $? -ne 0 ]]; then
+	alistatus="0"
+fi
+
+curl -s https://tencent.com/ --connect-timeout 3 &> /dev/null
+
+if [[ $? -ne 0 ]]; then
+	tencentstatus="0"
+fi
+
+if [[ $114status -eq 0 ]] && [[ $alistatus -eq 0 ]] && [[ $tencentstatus -eq 0 ]]; then
+	colorEcho ${ERROR} "你的ip被墙了，滚蛋！"
+	exit 1
+fi
+
 clear
 if [[ $install_status == 1 ]]; then
 if (whiptail --title "Installed Detected" --defaultno --yesno "检测到已安装，是否继续?" 8 78); then
@@ -429,7 +441,7 @@ if [[ $system_upgrade = 1 ]]; then
 fi
 #####################################
 while [[ -z $domain ]]; do
-domain=$(whiptail --inputbox --nocancel "快輸入你的域名並按回車" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
+domain=$(whiptail --inputbox --nocancel "快輸入你的域名並按回車(请先完成A/AAAA解析 https://dnschecker.org/)" 8 78 --title "Domain input" 3>&1 1>&2 2>&3)
 done
 if [[ $install_trojan = 1 ]]; then
 	while [[ -z $password1 ]]; do
@@ -494,18 +506,20 @@ fi
 	done
 	fi
 ####################################
-mkdir /etc/trojan || true
+	if [[ ! -d /etc/trojan ]]; then
+		mkdir /etc/trojan
+	fi
 	if [ -f /etc/trojan/*.crt ]; then
-		mv /etc/trojan/*.crt /etc/trojan/trojan.crt || true
+		mv /etc/trojan/*.crt /etc/trojan/trojan.crt
 	fi
 	if [ -f /etc/trojan/*.key ]; then
-		mv /etc/trojan/*.key /etc/trojan/trojan.key || true
+		mv /etc/trojan/*.key /etc/trojan/trojan.key
 	fi
 ####################################
 if [[ -f /etc/trojan/trojan.crt ]] && [[ -f /etc/trojan/trojan.key ]]; then
 		TERM=ansi whiptail --title "证书已有，跳过申请" --infobox "证书已有，跳过申请。。。" 8 78
 		else		
-	if (whiptail --title "api" --yesno --defaultno "使用 (use) api申请证书(to issue certificate)?推荐，可用于申请wildcard证书" 8 78); then
+	if (whiptail --title "api" --yesno --defaultno "使用 (use) api申请证书(to issue certificate)?" 8 78); then
     dns_api=1
     APIOPTION=$(whiptail --nocancel --clear --ok-button "吾意已決 立即執行" --title "API choose" --menu --separate-output "域名(domain)API：請按方向键來選擇(Use Arrow key to choose)" 15 78 6 \
 "1" "Cloudflare" \
@@ -583,52 +597,51 @@ fi
 }
 ###############OS detect####################
 osdist(){
-
-set -e
+set +e
 colorEcho ${INFO} "初始化中(initializing)"
  if cat /etc/*release | grep ^NAME | grep -q CentOS; then
 	dist=centos
 	pack="yum -y -q"
 	yum update -y
 	yum install -y epel-release
-	yum install sudo newt curl e2fsprogs jq redhat-lsb-core lsof -y -q || true
+	yum install sudo newt curl e2fsprogs jq redhat-lsb-core lsof -y -q
  elif cat /etc/*release | grep ^NAME | grep -q Red; then
 	dist=centos
 	pack="yum -y -q"
 	yum update -y
 	yum install -y epel-release
-	yum install sudo newt curl e2fsprogs jq redhat-lsb-core lsof -y -q || true
+	yum install sudo newt curl e2fsprogs jq redhat-lsb-core lsof -y -q
  elif cat /etc/*release | grep ^NAME | grep -q Fedora; then
 	dist=centos
 	pack="yum -y -q"
 	yum update -y
 	yum install -y epel-release
-	yum install sudo newt curl e2fsprogs jq redhat-lsb-core lsof -y -q || true
+	yum install sudo newt curl e2fsprogs jq redhat-lsb-core lsof -y -q
  elif cat /etc/*release | grep ^NAME | grep -q Ubuntu; then
 	dist=ubuntu
 	pack="apt-get -y -qq"
 	apt-get update -q
 	export DEBIAN_FRONTEND=noninteractive
-	apt-get install sudo whiptail curl locales lsb-release e2fsprogs jq lsof -y -qq || true
+	apt-get install sudo whiptail curl locales lsb-release e2fsprogs jq lsof -y -qq
  elif cat /etc/*release | grep ^NAME | grep -q Debian; then
 	dist=debian
 	pack="apt-get -y -qq"
 	apt-get update -q
 	export DEBIAN_FRONTEND=noninteractive
-	apt-get install sudo whiptail curl locales lsb-release e2fsprogs jq lsof -y -qq || true
+	apt-get install sudo whiptail curl locales lsb-release e2fsprogs jq lsof -y -qq
  else
 	TERM=ansi whiptail --title "OS not SUPPORTED" --infobox "OS NOT SUPPORTED!" 8 78
-		exit 1;
+	exit 1;
  fi
 }
 ##############Upgrade system optional########
 upgradesystem(){
 	set +e
-	if [[ $dist = centos ]]; then
+	if [[ $dist == centos ]]; then
 		yum upgrade -y
- elif [[ $dist = ubuntu ]]; then
+ elif [[ $dist == ubuntu ]]; then
 	export UBUNTU_FRONTEND=noninteractive
-	if [[ $ubuntu18_install = 1 ]]; then
+	if [[ $ubuntu18_install == 1 ]]; then
 		cat > '/etc/apt/sources.list' << EOF
 #------------------------------------------------------------------------------#
 #                            OFFICIAL UBUNTU REPOS                             #
@@ -644,17 +657,19 @@ deb http://us.archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe
 deb-src http://us.archive.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse 
 deb-src http://us.archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse 
 EOF
-	apt-get update
+	apt-get update --fix-missing
+	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get upgrade -q -y'
 	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y'
 	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y'
+	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y'
 	fi
-	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get upgrade -qq -y'
-	apt-get autoremove -qq -y
+	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y'
 	clear
- elif [[ $dist = debian ]]; then
-	export DEBIAN_FRONTEND=noninteractive 
-	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get upgrade -qq -y'
-	if [[ $debian10_install = 1 ]]; then
+ elif [[ $dist == debian ]]; then
+	export DEBIAN_FRONTEND=noninteractive
+	apt-get update --fix-missing
+	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get upgrade -q -y'
+	if [[ $debian10_install == 1 ]]; then
 		cat > '/etc/apt/sources.list' << EOF
 #------------------------------------------------------------------------------#
 #                   OFFICIAL DEBIAN REPOS                    
@@ -673,12 +688,14 @@ deb-src http://deb.debian.org/debian-security stable/updates main
 deb http://ftp.debian.org/debian buster-backports main
 deb-src http://ftp.debian.org/debian buster-backports main
 EOF
-	apt-get update
+	apt-get update --fix-missing
+	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get upgrade -q -y'
 	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y'
 	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y'
+	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y'
 	clear
 	fi
-	if [[ $debian9_install = 1 ]]; then
+	if [[ $debian9_install == 1 ]]; then
 		cat > '/etc/apt/sources.list' << EOF
 #------------------------------------------------------------------------------#
 #                   OFFICIAL DEBIAN REPOS                    
@@ -697,9 +714,11 @@ deb-src http://deb.debian.org/debian-security oldstable/updates main
 deb http://ftp.debian.org/debian stretch-backports main
 deb-src http://ftp.debian.org/debian stretch-backports main
 EOF
-	apt-get update
+	apt-get update --fix-missing
+	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get upgrade -q -y'
 	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y'
 	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -q -y'
+	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y'
 	fi
 	sh -c 'echo "y\n\ny\ny\ny\ny\ny\ny\ny\n" | DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y'
 	clear
@@ -711,7 +730,8 @@ EOF
 }
 ##########install dependencies#############
 installdependency(){
-	colorEcho ${INFO} "Updating system"
+	set +e
+colorEcho ${INFO} "Updating system"
 	$pack update
 	if [[ $install_status == 0 ]]; then
 		caddystatus=$(systemctl is-active caddy)
@@ -733,23 +753,119 @@ installdependency(){
 		(echo >/dev/tcp/localhost/80) &>/dev/null && echo "TCP port 443 open" && kill $(lsof -t -i:443) || echo "Moving on"
 	fi
 ###########################################
+if [[ $system_upgrade = 1 ]]; then
+upgradesystem
+fi
+###########################################
+	if [[ $install_bbr == 1 ]]; then
+	colorEcho ${INFO} "设置(setting up) TCP-BBR boost technology"
+	#iii=$(ip link | awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' | cut -c2-999)
+	cat > '/etc/sysctl.d/99-sysctl.conf' << EOF
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv4.conf.default.forwarding = 1
+################################
+net.ipv6.conf.all.forwarding = 1
+net.ipv6.conf.default.forwarding = 1
+net.ipv6.conf.lo.forwarding = 1
+################################
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv6.conf.default.disable_ipv6 = 0
+net.ipv6.conf.lo.disable_ipv6 = 0
+################################
+net.ipv6.conf.all.accept_ra = 2
+net.ipv6.conf.default.accept_ra = 2
+################################
+net.core.netdev_max_backlog = 100000
+net.core.netdev_budget = 50000
+net.core.netdev_budget_usecs = 5000
+#fs.file-max = 51200
+net.core.rmem_max = 67108864
+net.core.wmem_max = 67108864
+net.core.rmem_default = 65536
+net.core.wmem_default = 65536
+net.core.somaxconn = 4096
+################################
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.tcp_rfc1337 = 1
+net.ipv4.tcp_timestamps = 1
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_tw_reuse = 1
+net.ipv4.tcp_fin_timeout = 10
+net.ipv4.tcp_keepalive_time = 1200
+net.ipv4.tcp_keepalive_intvl = 10
+net.ipv4.tcp_keepalive_probes = 6
+net.ipv4.ip_local_port_range = 10000 65000
+net.ipv4.tcp_max_tw_buckets = 2000000
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_rmem = 4096 87380 67108864
+net.ipv4.tcp_wmem = 4096 65536 67108864
+net.ipv4.udp_rmem_min = 8192
+net.ipv4.udp_wmem_min = 8192
+net.ipv4.tcp_mtu_probing = 1
+##############################
+net.ipv4.tcp_slow_start_after_idle = 0
+net.ipv4.tcp_max_syn_backlog = 30000
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+net.ipv4.tcp_ecn = 1
+net.ipv4.tcp_frto = 0
+##############################
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+vm.swappiness = 5
+EOF
+	sysctl --system
+	cat > '/etc/systemd/system.conf' << EOF
+[Manager]
+#DefaultTimeoutStartSec=90s
+DefaultTimeoutStopSec=30s
+#DefaultRestartSec=100ms
+DefaultLimitCORE=infinity
+DefaultLimitNOFILE=51200
+DefaultLimitNPROC=51200
+EOF
+		cat > '/etc/security/limits.conf' << EOF
+* soft nofile 51200
+* hard nofile 51200
+* soft nproc 51200
+* hard nproc 51200
+EOF
+if grep -q "ulimit" /etc/profile
+then
+	:
+else
+echo "ulimit -SHn 51200" >> /etc/profile
+echo "ulimit -SHu 51200" >> /etc/profile
+fi
+if grep -q "pam_limits.so" /etc/pam.d/common-session
+then
+	:
+else
+echo "session required pam_limits.so" >> /etc/pam.d/common-session
+fi
+systemctl daemon-reload
+	fi
+###########################################
 	clear
 	colorEcho ${INFO} "安装所有必备软件(Install all necessary Software)"
-	if [[ $dist = centos ]]; then
-		yum install -y -q sudo curl wget gnupg python3-qrcode unzip bind-utils epel-release chrony systemd dbus xz cron socat || true
- elif [[ $dist = ubuntu ]] || [[ $dist = debian ]]; then
-	apt-get install sudo curl xz-utils wget apt-transport-https gnupg dnsutils lsb-release python-pil unzip resolvconf ntpdate systemd dbus ca-certificates locales iptables software-properties-common cron socat -qq -y
-	if [[ $(lsb_release -cs) == xenial ]] || [[ $(lsb_release -cs) == trusty ]] || [[ $(lsb_release -cs) == jessie ]]; then
-		TERM=ansi whiptail --title "Skipping generating QR code!" --infobox "你的操作系统不支持 python3-qrcode,Skipping generating QR code!" 8 78
-		else
-		apt-get install python3-qrcode -qq -y
-	fi
- else
-	clear
-	TERM=ansi whiptail --title "error can't install dependency" --infobox "error can't install dependency" 8 78
-	exit 1;
- fi
- clear
+if [[ $dist != centos ]]; then
+	apt-get install sudo curl xz-utils wget apt-transport-https gnupg dnsutils lsb-release python-pil unzip resolvconf ntpdate systemd dbus ca-certificates locales iptables software-properties-common cron socat -q -y
+	apt-get install python3-qrcode -q -y
+else
+	$pack install sudo curl wget gnupg python3-qrcode unzip bind-utils epel-release chrony systemd dbus xz cron socat
+	$pack install python3-qrcode
+fi
+clear
 #############################################
 if [[ -f /etc/trojan/trojan.crt ]] || [[ $dns_api == 1 ]]; then
 	:
@@ -824,8 +940,8 @@ done
         ~/.acme.sh/acme.sh --issue --dns dns_cx -d $domain -k ec-256 --force --log --reloadcmd "systemctl reload trojan || true && nginx -s reload || true"
         ;;
         back) 
-		colorEcho ${ERROR} "域名解析验证失败，请自行验证解析是否成功并且请关闭Cloudfalare CDN并检查VPS控制面板防火墙(80 443)是否打开!!!"
-		colorEcho ${ERROR} "Domain verification fail,Pleae turn off Cloudflare CDN and Open port 80 443 on VPS panel !!!"
+		colorEcho ${ERROR} "证书申请失败，请验证域名是否正确！"
+		colorEcho ${ERROR} "certificate issue fail,please enter correct domain!"
     	exit 1
 		break
 		;;
@@ -843,25 +959,15 @@ done
 	fi  
 fi
 #############################################
-if [[ $system_upgrade = 1 ]]; then
-upgradesystem
-fi
-clear
-#############################################
 if [[ $tls13only = 1 ]]; then
 cipher_server="TLS_AES_128_GCM_SHA256"
 fi
 #####################################################
-	if [[ -f /etc/apt/sources.list.d/nginx.list ]]; then
-		:
-		else
-		clear
-		colorEcho ${INFO} "安装Nginx(Install Nginx ing)"
-	if [[ $dist = centos ]]; then
-	yum install nginx -y -q
-	systemctl stop nginx || true
- elif [[ $dist = debian ]] || [[ $dist = ubuntu ]]; then
- 	curl -LO --progress-bar https://nginx.org/keys/nginx_signing.key
+if [[ ! -f /etc/apt/sources.list.d/nginx.list ]]; then
+	clear
+	colorEcho ${INFO} "安装Nginx(Install Nginx ing)"
+	if [[ $dist != centos ]]; then
+	curl -LO --progress-bar https://nginx.org/keys/nginx_signing.key
 	apt-key add nginx_signing.key
 	rm -rf nginx_signing.key
 	touch /etc/apt/sources.list.d/nginx.list
@@ -869,14 +975,18 @@ fi
 deb https://nginx.org/packages/mainline/$dist/ $(lsb_release -cs) nginx
 deb-src https://nginx.org/packages/mainline/$dist/ $(lsb_release -cs) nginx
 EOF
-	apt-get remove nginx-common -qq -y
-	apt-get update -qq
-	apt-get install nginx -qq -y
- else
-	clear
-	TERM=ansi whiptail --title "error can't install nginx" --infobox "error can't install nginx" 8 78
-		exit 1;
- fi
+	apt-get purge nginx -qq -y
+	apt-get update -q
+	apt-get install nginx -q -y
+ 	else
+ 	yum install nginx -y -q
+	systemctl stop nginx
+	curl -LO --progress-bar https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/nginx_centos
+	cp -f nginx_centos /usr/sbin/nginx
+	rm nginx_centos
+	mkdir /var/cache/nginx/
+	chmod +x /usr/sbin/nginx
+ 	fi
 fi
 	cat > '/lib/systemd/system/nginx.service' << EOF
 [Unit]
@@ -891,6 +1001,8 @@ ExecStart=/usr/sbin/nginx
 ExecReload=/usr/sbin/nginx -s reload
 ExecStop=/bin/kill -s QUIT \$MAINPID
 PrivateTmp=true
+LimitNOFILE=51200
+LimitNPROC=51200
 Restart=on-failure
 RestartSec=3s
 
@@ -898,14 +1010,7 @@ RestartSec=3s
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-if [[ $dist = centos ]]; then
-	curl -LO --progress-bar https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/nginx_centos
-	cp -f nginx_centos /usr/sbin/nginx
-	rm nginx_centos
-	mkdir /var/cache/nginx/ || true
-	chmod +x /usr/sbin/nginx || true
-fi
-		cat > '/etc/nginx/nginx.conf' << EOF
+	cat > '/etc/nginx/nginx.conf' << EOF
 user nginx;
 worker_processes auto;
 
@@ -936,6 +1041,8 @@ http {
 
 	sendfile on;
 	gzip on;
+	gzip_proxied any;
+	gzip_types *;
 	gzip_comp_level 9;
 
 	include /etc/nginx/conf.d/*.conf;
@@ -944,9 +1051,9 @@ http {
 EOF
 clear
 #############################################
-if [[ $install_qbt = 1 ]]; then
+if [[ $install_qbt == 1 ]]; then
 	if [[ -f /usr/bin/qbittorrent-nox ]]; then
-		cat > '/etc/systemd/system/qbittorrent.service' << EOF
+	cat > '/etc/systemd/system/qbittorrent.service' << EOF
 [Unit]
 Description=qBittorrent Daemon Service
 Documentation=man:qbittorrent-nox(1)
@@ -957,8 +1064,11 @@ After=network-online.target nss-lookup.target
 # if you have systemd >= 240, you probably want to use Type=exec instead
 Type=simple
 User=root
-ExecStart=/usr/bin/qbittorrent-nox
+RemainAfterExit=yes
+ExecStart=/usr/bin/qbittorrent-nox --profile=/usr/share/nginx/
 TimeoutStopSec=infinity
+LimitNOFILE=51200
+LimitNPROC=51200
 Restart=on-failure
 RestartSec=1s
 
@@ -968,21 +1078,17 @@ EOF
 	else
 	clear
 	colorEcho ${INFO} "安装Qbittorrent(Install Qbittorrent ing)"
-	if [[ $dist = centos ]]; then
-	yum install -y -q epel-release
-	yum update -y -q
-	yum install qbittorrent-nox -y -q || true
- elif [[ $dist = ubuntu ]]; then
+	if [[ $dist == debian ]]; then
+	export DEBIAN_FRONTEND=noninteractive 
+	apt-get install qbittorrent-nox -q -y
+ elif [[ $dist == ubuntu ]]; then
 	export DEBIAN_FRONTEND=noninteractive
 	add-apt-repository ppa:qbittorrent-team/qbittorrent-stable -y
-	apt-get install qbittorrent-nox -qq -y
- elif [[ $dist = debian ]]; then
-	export DEBIAN_FRONTEND=noninteractive 
-	apt-get install qbittorrent-nox -qq -y
+	apt-get install qbittorrent-nox -q -y
  else
-	clear
-	TERM=ansi whiptail --title "error can't install qbittorrent-nox" --infobox "error can't install qbittorrent-nox" 8 78
-		exit 1;
+	yum install -y -q epel-release
+	yum update -y -q
+	yum install qbittorrent-nox -y -q
  fi
 	cat > '/etc/systemd/system/qbittorrent.service' << EOF
 [Unit]
@@ -995,43 +1101,41 @@ After=network-online.target nss-lookup.target
 # if you have systemd >= 240, you probably want to use Type=exec instead
 Type=simple
 User=root
-ExecStart=/usr/bin/qbittorrent-nox
+RemainAfterExit=yes
+ExecStart=/usr/bin/qbittorrent-nox --profile=/usr/share/nginx/
 TimeoutStopSec=infinity
+LimitNOFILE=51200
+LimitNPROC=51200
 Restart=on-failure
 RestartSec=1s
 
 [Install]
 WantedBy=multi-user.target
 EOF
-mkdir /usr/share/nginx/qbt/ || true
-chmod 755 /usr/share/nginx/qbt/ || true
+mkdir /usr/share/nginx/qBittorrent/
+mkdir /usr/share/nginx/qBittorrent/downloads/
+chmod 755 /usr/share/nginx/
 fi
 fi
 clear
 #############################################
 if [[ $install_tracker = 1 ]]; then
-	if [[ -f /usr/bin/bittorrent-tracker ]]; then
-		:
-		else
+	if [[ ! -f /usr/bin/bittorrent-tracker ]]; then
 		clear
 		colorEcho ${INFO} "安装Bittorrent-tracker(Install bittorrent-tracker ing)"
-	if [[ $dist = centos ]]; then
-		curl -sL https://rpm.nodesource.com/setup_13.x | bash -
-		yum install -y -q nodejs
+	if [[ $dist = debian ]]; then
+		export DEBIAN_FRONTEND=noninteractive 
+		curl -sL https://deb.nodesource.com/setup_13.x | bash -
+		apt-get install -q -y nodejs
  elif [[ $dist = ubuntu ]]; then
 	export DEBIAN_FRONTEND=noninteractive
 	curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash -
-	apt-get install -qq -y nodejs
- elif [[ $dist = debian ]]; then
-	export DEBIAN_FRONTEND=noninteractive 
-	curl -sL https://deb.nodesource.com/setup_13.x | bash -
-	apt-get install -qq -y nodejs
+	apt-get install -q -y nodejs
  else
-	clear
-	TERM=ansi whiptail --title "error can't install qbittorrent-nox" --infobox "error can't install qbittorrent-nox" 8 78
-		exit 1;
+	curl -sL https://rpm.nodesource.com/setup_13.x | bash -
+	yum install -y -q nodejs
  fi
- npm install -g bittorrent-tracker --silent
+ npm install -g bittorrent-tracker --quiet
 			cat > '/etc/systemd/system/tracker.service' << EOF
 [Unit]
 Description=Bittorrent-Tracker Daemon Service
@@ -1043,8 +1147,10 @@ After=network-online.target nss-lookup.target
 Type=simple
 User=root
 RemainAfterExit=yes
-ExecStart=/usr/bin/bittorrent-tracker --http --ws --trust-proxy
+ExecStart=/usr/bin/bittorrent-tracker --trust-proxy
 TimeoutStopSec=infinity
+LimitNOFILE=51200
+LimitNPROC=51200
 Restart=on-failure
 RestartSec=1s
 
@@ -1056,20 +1162,14 @@ fi
 clear
 #############################################
 if [[ $install_file = 1 ]]; then
-	if [[ -f /usr/local/bin/filebrowser ]]; then
-		:
-		else
+	if [[ ! -f /usr/local/bin/filebrowser ]]; then
 		clear
 		colorEcho ${INFO} "安装Filebrowser(Install Filebrowser ing)"
-	if [[ $dist = centos ]]; then
-	curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash || true
- elif [[ $dist = ubuntu ]] || [[ $dist = debian ]]; then
+	if [[ $dist != centos ]]; then
 	export DEBIAN_FRONTEND=noninteractive
 	curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
  else
-	clear
-	TERM=ansi whiptail --title "error can't install filebrowser" --infobox "error can't install filebrowser" 8 78
-		exit 1;
+	curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
  fi
 	cat > '/etc/systemd/system/filebrowser.service' << EOF
 [Unit]
@@ -1079,29 +1179,34 @@ After=network.target
 [Service]
 User=root
 Group=root
+RemainAfterExit=yes
 ExecStart=/usr/local/bin/filebrowser -r /usr/share/nginx/ -d /etc/filebrowser/database.db -b $filepath -p 8081
 ExecReload=/usr/bin/kill -HUP \$MAINPID
 ExecStop=/usr/bin/kill -s STOP \$MAINPID
+LimitNOFILE=51200
+LimitNPROC=51200
 RestartSec=1s
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 EOF
-mkdir /etc/filebrowser/ || true
-touch /etc/filebrowser/database.db || true
+mkdir /etc/filebrowser/
+touch /etc/filebrowser/database.db
 fi
 fi
 clear
 #############################################
 if [[ $install_aria = 1 ]]; then
+	ariaport=$(shuf -i 20000-60000 -n 1)
+	trackers_list=$(wget -qO- https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt |awk NF|sed ":a;N;s/\n/,/g;ta")
 	if [[ -f /usr/local/bin/aria2c ]]; then
 		cat > '/etc/systemd/system/aria2.service' << EOF
 [Unit]
 Description=Aria2c download manager
 Requires=network.target
 After=network.target
-		
+
 [Service]
 Type=forking
 User=root
@@ -1109,110 +1214,82 @@ RemainAfterExit=yes
 ExecStart=/usr/local/bin/aria2c --conf-path=/etc/aria2.conf --daemon
 ExecReload=/usr/bin/kill -HUP \$MAINPID
 ExecStop=/usr/bin/kill -s STOP \$MAINPID
-RestartSec=1min
+LimitNOFILE=51200
+LimitNPROC=51200
+RestartSec=3s
 Restart=on-failure
 		
 [Install]
 WantedBy=multi-user.target
 EOF
 	cat > '/etc/aria2.conf' << EOF
+async-dns=true
+log-level=info
+log=/var/log/aria2.log
+rlimit-nofile=51200
 rpc-secure=false
-#rpc-certificate=/etc/trojan/trojan.crt
-#rpc-private-key=/etc/trojan/trojan.key
-## 下载设置 ##
 continue=true
 max-concurrent-downloads=50
-split=16
+#split=16
 min-split-size=10M
 max-connection-per-server=16
 lowest-speed-limit=0
-#max-overall-download-limit=0
-#max-download-limit=0
-#max-overall-upload-limit=0
-#max-upload-limit=0
 disable-ipv6=false
 max-tries=0
 #retry-wait=0
-
-## 进度保存相关 ##
-
 input-file=/usr/local/bin/aria2.session
 save-session=/usr/local/bin/aria2.session
 save-session-interval=60
 force-save=true
-
-## RPC相关设置 ##
-
 enable-rpc=true
 rpc-allow-origin-all=true
 rpc-listen-all=false
 event-poll=epoll
-# RPC监听端口, 端口被占用时可以修改, 默认:6800
 rpc-listen-port=6800
-# 设置的RPC授权令牌, v1.18.4新增功能, 取代 --rpc-user 和 --rpc-passwd 选项
 rpc-secret=$ariapasswd
-
-## BT/PT下载相关 ##
 bt-tracker=$trackers_list
-#follow-torrent=true
-listen-port=51413
-#bt-max-peers=55
+follow-torrent=true
+listen-port=$ariaport
 enable-dht=true
 enable-dht6=true
-#dht-listen-port=6881-6999
 bt-enable-lpd=true
-#enable-peer-exchange=true
-#bt-request-peer-speed-limit=50K
-# 客户端伪装, PT需要
-#peer-id-prefix=-TR2770-
-#user-agent=Transmission/2.77
+enable-peer-exchange=true
 seed-ratio=0
-# BT校验相关, 默认:true
-#bt-hash-check-seed=true
+bt-hash-check-seed=true
 bt-seed-unverified=true
 bt-save-metadata=true
 bt-require-crypto=true
-
-## 磁盘相关 ##
-
-#文件保存路径, 默认为当前启动位置
+bt-force-encryption=true
+bt-min-crypto-level=arc4
+bt-max-peers=0
 dir=/usr/share/nginx/aria2/
-#enable-mmap=true
 file-allocation=none
 disk-cache=64M
 EOF
 	else
 	clear
 	colorEcho ${INFO} "安装aria2(Install aria2 ing)"
-	if [[ $dist = centos ]]; then
-		yum install -y -q nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev libssl-dev libuv1-dev || true
-		curl -LO --progress-bar https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/aria2c_centos.xz
-		xz --decompress aria2c_centos.xz
-		cp aria2c_centos /usr/local/bin/aria2c
-		chmod +x /usr/local/bin/aria2c
-		rm aria2c_centos
-	else
-		apt-get install nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev libssl-dev libuv1-dev -qq -y
+	if [[ $dist != centos ]]; then
+		apt-get install nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev libssl-dev libuv1-dev -q -y
 		curl -LO --progress-bar https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/aria2c.xz
 		xz --decompress aria2c.xz
 		cp aria2c /usr/local/bin/aria2c
 		chmod +x /usr/local/bin/aria2c
 		rm aria2c
-		#apt-get install build-essential nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev pkg-config libssl-dev autoconf automake autotools-dev autopoint libtool libuv1-dev libcppunit-dev -qq -y
-		#wget https://github.com/aria2/aria2/releases/download/release-1.35.0/aria2-1.35.0.tar.xz -q
-		#cd aria2-1.35.0
-		#./configure --without-gnutls --with-openssl
-		#make -j $(nproc --all)
-		#make install
-		#apt remove build-essential autoconf automake autotools-dev autopoint libtool -qq -y
-		apt-get autoremove -qq -y
+		apt-get autoremove -q -y
+	else
+		yum install -y -q nettle-dev libgmp-dev libssh2-1-dev libc-ares-dev libxml2-dev zlib1g-dev libsqlite3-dev libssl-dev libuv1-dev
+		curl -LO --progress-bar https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/aria2c_centos.xz
+		xz --decompress aria2c_centos.xz
+		cp aria2c_centos /usr/local/bin/aria2c
+		chmod +x /usr/local/bin/aria2c
+		rm aria2c_centos
 	fi
 	touch /usr/local/bin/aria2.session
 	mkdir /usr/share/nginx/aria2/
 	chmod 755 /usr/share/nginx/aria2/
 	cd ..
 	rm -rf aria2-1.35.0
-	trackers_list=$(wget -qO- https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt |awk NF|sed ":a;N;s/\n/,/g;ta")
 	cat > '/etc/systemd/system/aria2.service' << EOF
 [Unit]
 Description=Aria2c download manager
@@ -1226,94 +1303,69 @@ RemainAfterExit=yes
 ExecStart=/usr/local/bin/aria2c --conf-path=/etc/aria2.conf --daemon
 ExecReload=/usr/bin/kill -HUP \$MAINPID
 ExecStop=/usr/bin/kill -s STOP \$MAINPID
-RestartSec=1min
+LimitNOFILE=51200
+LimitNPROC=51200
+RestartSec=3s
 Restart=on-failure
 		
 [Install]
 WantedBy=multi-user.target
 EOF
 	cat > '/etc/aria2.conf' << EOF
+async-dns=true
+log-level=info
+log=/var/log/aria2.log
+rlimit-nofile=51200
 rpc-secure=false
-#rpc-certificate=/etc/trojan/trojan.crt
-#rpc-private-key=/etc/trojan/trojan.key
-## 下载设置 ##
 continue=true
 max-concurrent-downloads=50
-split=16
+#split=16
 min-split-size=10M
 max-connection-per-server=16
 lowest-speed-limit=0
-#max-overall-download-limit=0
-#max-download-limit=0
-#max-overall-upload-limit=0
-#max-upload-limit=0
 disable-ipv6=false
 max-tries=0
 #retry-wait=0
-
-## 进度保存相关 ##
-
 input-file=/usr/local/bin/aria2.session
 save-session=/usr/local/bin/aria2.session
 save-session-interval=60
 force-save=true
-
-## RPC相关设置 ##
-
 enable-rpc=true
 rpc-allow-origin-all=true
 rpc-listen-all=false
 event-poll=epoll
-# RPC监听端口, 端口被占用时可以修改, 默认:6800
 rpc-listen-port=6800
-# 设置的RPC授权令牌, v1.18.4新增功能, 取代 --rpc-user 和 --rpc-passwd 选项
 rpc-secret=$ariapasswd
-
-## BT/PT下载相关 ##
 bt-tracker=$trackers_list
-#follow-torrent=true
-listen-port=51413
-#bt-max-peers=55
+follow-torrent=true
+listen-port=$ariaport
 enable-dht=true
 enable-dht6=true
-#dht-listen-port=6881-6999
 bt-enable-lpd=true
-#enable-peer-exchange=true
-#bt-request-peer-speed-limit=50K
-# 客户端伪装, PT需要
-#peer-id-prefix=-TR2770-
-#user-agent=Transmission/2.77
+enable-peer-exchange=true
 seed-ratio=0
-# BT校验相关, 默认:true
-#bt-hash-check-seed=true
+bt-hash-check-seed=true
 bt-seed-unverified=true
 bt-save-metadata=true
 bt-require-crypto=true
-
-## 磁盘相关 ##
-
-#文件保存路径, 默认为当前启动位置
+bt-force-encryption=true
+bt-min-crypto-level=arc4
+bt-max-peers=0
 dir=/usr/share/nginx/aria2/
-#enable-mmap=true
 file-allocation=none
 disk-cache=64M
 EOF
 	fi
 fi
 #############################################
-if [[ $dnsmasq_install = 1 ]]; then
-	if [[ -f /usr/sbin/dnscrypt-proxy ]]; then
-		:
-	else
+if [[ $dnsmasq_install == 1 ]]; then
+	if [[ ! -f /usr/sbin/dnscrypt-proxy ]]; then
 	clear
 	colorEcho ${INFO} "安装dnscrypt-proxy(Install dnscrypt-proxy ing)"
-	dnsmasqstatus=$(systemctl is-active dnsmasq)
-		if [[ $dnsmasqdstatus == active ]]; then
+		if [[ $(systemctl is-active dnsmasq) == active ]]; then
 			systemctl disable dnsmasq
 		fi
-	#(echo >/dev/tcp/localhost/80) &>/dev/null && echo "TCP port 53 open" && kill $(lsof -t -i:53) || echo "Moving on"
 	curl -LO --progress-bar https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/2.0.39/dnscrypt-proxy-linux_x86_64-2.0.39.tar.gz
-	#wget https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/2.0.39/dnscrypt-proxy-linux_x86_64-2.0.39.tar.gz
 	tar -xvf dnscrypt-proxy-linux_x86_64-2.0.39.tar.gz
 	rm dnscrypt-proxy-linux_x86_64-2.0.39.tar.gz
 	cd linux-x86_64
@@ -1321,6 +1373,8 @@ if [[ $dnsmasq_install = 1 ]]; then
 	chmod +x /usr/sbin/dnscrypt-proxy
 	cd ..
 	rm -rf linux-x86_64
+	adduser --system --no-create-home --disabled-login --group dnscrypt-proxy
+	setcap cap_net_bind_service=+pe /usr/sbin/dnscrypt-proxy
 	cat > '/etc/blacklist.txt' << EOF
 
 ###########################
@@ -1376,7 +1430,10 @@ if [[ -n $myipv6 ]]; then
 		block_ipv6="false"
 	fi
 fi
-    cat > '/etc/dnscrypt-proxy.toml' << EOF
+if [[ ! -d /etc/dnscrypt-proxy ]]; then
+	mkdir /etc/dnscrypt-proxy
+fi
+    cat > '/etc/dnscrypt-proxy/dnscrypt-proxy.toml' << EOF
 listen_addresses = ['127.0.0.1:53']
 max_clients = 250
 ipv4_servers = true
@@ -1392,7 +1449,7 @@ timeout = 5000
 keepalive = 30
 lb_estimator = true
 log_level = 2
-log_file = '/var/log/dnscrypt-proxy.log'
+log_file = '/var/log/dnscrypt-proxy/dnscrypt-proxy.log'
 cert_refresh_delay = 720
 tls_disable_session_tickets = true
 #tls_cipher_suite = [4865]
@@ -1424,7 +1481,7 @@ cache_neg_max_ttl = 600
 
 [query_log]
 
-  file = '/var/log/query.log'
+  file = '/var/log/dnscrypt-proxy/query.log'
   format = 'tsv'
 
 [blacklist]
@@ -1461,32 +1518,37 @@ EOF
 Description=DNSCrypt client proxy
 Documentation=https://github.com/DNSCrypt/dnscrypt-proxy/wiki
 After=network.target
+Before=nss-lookup.target
+Wants=nss-lookup.target
 
 [Service]
-Type=simple
-ExecStart=/usr/sbin/dnscrypt-proxy -config /etc/dnscrypt-proxy.toml
+NonBlocking=true
+ExecStart=/usr/sbin/dnscrypt-proxy -config /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
 User=root
+CacheDirectory=dnscrypt-proxy
+LogsDirectory=dnscrypt-proxy
+RuntimeDirectory=dnscrypt-proxy
+LimitNOFILE=51200
+LimitNPROC=51200
 Restart=on-failure
 RestartSec=3s
 
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl enable dnscrypt-proxy
+systemctl enable dnscrypt-proxy.service
 	fi
 fi
 clear
 #############################################
 if [[ $install_tor = 1 ]]; then
 	clear
-	if [[ -f /usr/bin/tor ]]; then
-		:
-		else
+	if [[ ! -f /usr/bin/tor ]]; then
 		colorEcho ${INFO} "安装Tor(Install Tor Relay ing)"
-	if [[ $dist = centos ]]; then
-		yum install -y -q epel-release || true
-		yum install -y -q tor  || true
- elif [[ $dist = ubuntu ]] || [[ $dist = debian ]]; then
+	if [[ $dist != centos ]]; then
 	export DEBIAN_FRONTEND=noninteractive
 	touch /etc/apt/sources.list.d/tor.list
 	cat > '/etc/apt/sources.list.d/tor.list' << EOF
@@ -1496,12 +1558,11 @@ EOF
 	curl https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --import
 	gpg --export A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89 | apt-key add -
 	apt-get update
-	apt-get install deb.torproject.org-keyring tor tor-arm tor-geoipdb -qq -y || true
+	apt-get install deb.torproject.org-keyring tor tor-arm tor-geoipdb -q -y
 	service tor stop
  else
-	clear
-	TERM=ansi whiptail --title "error can't install tor" --infobox "error can't install tor" 8 78
-		exit 1;
+	yum install -y -q epel-release
+	yum install -y -q tor 
  fi
 	cat > '/etc/tor/torrc' << EOF
 SocksPort 0
@@ -1520,47 +1581,28 @@ systemctl restart tor@default
 fi
 #############################################
 if [[ $install_netdata = 1 ]]; then
-	if [[ -f /usr/sbin/netdata ]]; then
-		:
-		else
+	if [[ ! -f /usr/sbin/netdata ]]; then
 		clear
 		colorEcho ${INFO} "安装Netdata(Install netdata ing)"
 		bash <(curl -Ss https://my-netdata.io/kickstart-static64.sh) --dont-wait --disable-telemetry
-		#bash <(curl -Ss https://my-netdata.io/kickstart.sh) --dont-wait --disable-telemetry
-		#sed -i 's/# bind to = \*/bind to = 127.0.0.1/g' /etc/netdata/netdata.conf
 		wget -O /opt/netdata/etc/netdata/netdata.conf http://localhost:19999/netdata.conf
 		sed -i 's/# bind to = \*/bind to = 127.0.0.1/g' /opt/netdata/etc/netdata/netdata.conf
 		sleep 1
 		colorEcho ${INFO} "重启Netdata(Restart netdata ing)"
-		systemctl restart netdata || true
+		systemctl restart netdata
 		cd
 	fi
 fi
 clear
 #############################################
-if [[ -f /etc/trojan/trojan.crt ]] && [[ -f /etc/trojan/trojan.key ]]; then
-	:
-	else
-	curl -s https://get.acme.sh | sh
-	~/.acme.sh/acme.sh --upgrade --auto-upgrade
-fi
-#############################################
 if [[ $install_trojan = 1 ]]; then
-	if [[ -f /usr/local/bin/trojan ]]; then
-		:
-		else
+	if [[ ! -f /usr/local/bin/trojan ]]; then
 	clear
 	colorEcho ${INFO} "安装Trojan-GFW(Install Trojan-GFW ing)"
 	bash -c "$(curl -fsSL https://raw.githubusercontent.com/trojan-gfw/trojan-quickstart/master/trojan-quickstart.sh)"
 	systemctl daemon-reload
 	clear
 	colorEcho ${INFO} "配置(configing) trojan-gfw"
-	if [[ -f /etc/trojan/trojan.pem ]]; then
-		colorEcho ${INFO} "DH已有，跳过生成。。。"
-		else
-		:
-		#openssl dhparam -out /etc/trojan/trojan.pem 2048
-		fi
 	fi
 	ipv4_prefer="true"
 	if [[ -n $myipv6 ]]; then
@@ -1569,6 +1611,26 @@ if [[ $install_trojan = 1 ]]; then
 			ipv4_prefer="false"
 		fi
 	fi
+	cat > '/etc/systemd/system/trojan.service' << EOF
+[Unit]
+Description=trojan
+Documentation=https://trojan-gfw.github.io/trojan/config https://trojan-gfw.github.io/trojan/
+After=network.target network-online.target nss-lookup.target mysql.service mariadb.service mysqld.service
+
+[Service]
+Type=simple
+StandardError=journal
+ExecStart=/usr/local/bin/trojan -c /usr/local/etc/trojan/config.json -l /var/log/trojan.log
+ExecReload=/bin/kill -HUP $MAINPID
+LimitNOFILE=51200
+LimitNPROC=51200
+Restart=on-failure
+RestartSec=1s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 	cat > '/usr/local/etc/trojan/config.json' << EOF
 {
     "run_type": "server",
@@ -1616,8 +1678,8 @@ if [[ $install_trojan = 1 ]]; then
     }
 }
 EOF
-	touch /usr/share/nginx/html/client1-$password1.json || true
-	touch /usr/share/nginx/html/client2-$password2.json || true
+	touch /usr/share/nginx/html/client1-$password1.json
+	touch /usr/share/nginx/html/client2-$password2.json
 	cat > "/usr/share/nginx/html/client1-$password1.json" << EOF
 {
 	"run_type": "client",
@@ -1688,88 +1750,50 @@ EOF
 	}
 }
 EOF
+if [[ -n $myipv6 ]]; then
+	touch /usr/share/nginx/html/clientv6-$password1.json
+	cat > "/usr/share/nginx/html/clientv6-$password1.json" << EOF
+{
+	"run_type": "client",
+	"local_addr": "127.0.0.1",
+	"local_port": 1080,
+	"remote_addr": "$myipv6",
+	"remote_port": 443,
+	"password": [
+		"$password1"
+	],
+	"log_level": 1,
+	"ssl": {
+		"verify": true,
+		"verify_hostname": true,
+		"cert": "",
+		"cipher": "$cipher_client",
+		"cipher_tls13": "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
+		"sni": "$domain",
+		"alpn": [
+			"h2",
+			"http/1.1"
+		],
+		"reuse_session": true,
+		"session_ticket": false,
+		"curves": ""
+	},
+	"tcp": {
+		"no_delay": true,
+		"keep_alive": true,
+		"reuse_port": false,
+		"fast_open": false,
+		"fast_open_qlen": 20
+	}
+}
+EOF
+fi
 fi
 	clear
-	if [[ $install_bbr = 1 ]]; then
-	colorEcho ${INFO} "设置(setting up) TCP-BBR boost technology"
-	cat > '/etc/sysctl.d/99-sysctl.conf' << EOF
-net.ipv6.conf.all.disable_ipv6 = 0
-net.ipv6.conf.default.disable_ipv6 = 0
-net.ipv6.conf.all.accept_ra = 2
-net.core.netdev_max_backlog = 100000
-net.core.netdev_budget = 50000
-net.core.netdev_budget_usecs = 5000
-#fs.file-max = 51200
-net.core.rmem_max = 67108864
-net.core.wmem_max = 67108864
-net.core.rmem_default = 65536
-net.core.wmem_default = 65536
-net.core.somaxconn = 4096
-net.ipv4.icmp_echo_ignore_broadcasts = 1
-net.ipv4.icmp_ignore_bogus_error_responses = 1
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-net.ipv6.conf.all.accept_redirects = 0
-net.ipv6.conf.default.accept_redirects = 0
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-net.ipv4.conf.default.rp_filter = 1
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.tcp_rfc1337 = 1
-net.ipv4.tcp_timestamps = 1
-net.ipv4.tcp_syncookies = 1
-net.ipv4.tcp_tw_reuse = 1
-net.ipv4.tcp_fin_timeout = 10
-net.ipv4.tcp_keepalive_time = 1200
-net.ipv4.tcp_keepalive_intvl = 10
-net.ipv4.tcp_keepalive_probes = 6
-net.ipv4.ip_local_port_range = 10000 65000
-net.ipv4.tcp_max_tw_buckets = 2000000
-net.ipv4.tcp_fastopen = 3
-net.ipv4.tcp_rmem = 4096 87380 67108864
-net.ipv4.tcp_wmem = 4096 65536 67108864
-net.ipv4.udp_rmem_min = 8192
-net.ipv4.udp_wmem_min = 8192
-net.ipv4.tcp_mtu_probing = 1
-net.ipv4.tcp_slow_start_after_idle = 0
-net.ipv4.tcp_max_syn_backlog = 30000
-net.core.default_qdisc = fq
-net.ipv4.tcp_congestion_control = bbr
-EOF
-	sysctl -p || true
-	cat > '/etc/systemd/system.conf' << EOF
-[Manager]
-#DefaultTimeoutStartSec=90s
-DefaultTimeoutStopSec=30s
-#DefaultRestartSec=100ms
-DefaultLimitCORE=infinity
-DefaultLimitNOFILE=51200
-DefaultLimitNPROC=51200
-EOF
-		cat > '/etc/security/limits.conf' << EOF
-* soft nofile 51200
-* hard nofile 51200
-EOF
-if grep -q "ulimit" /etc/profile
-then
-	:
-else
-echo "ulimit -SHn 51200" >> /etc/profile
-fi
-if grep -q "pam_limits.so" /etc/pam.d/common-session
-then
-	:
-else
-echo "session required pam_limits.so" >> /etc/pam.d/common-session || true
-fi
-systemctl daemon-reload
-	fi
-	timedatectl set-timezone Asia/Hong_Kong || true
-	timedatectl set-ntp on || true
+	timedatectl set-timezone Asia/Hong_Kong
+	timedatectl set-ntp on
 	if [[ $dist != centos ]]; then
-		ntpdate -qu 1.hk.pool.ntp.org > /dev/null || true
+		ntpdate -qu 1.hk.pool.ntp.org > /dev/null
 	fi
 	clear
 }
@@ -1777,14 +1801,49 @@ systemctl daemon-reload
 openfirewall(){
 	set +e
 	colorEcho ${INFO} "设置 firewall"
-	#sh -c 'echo "1\n" | DEBIAN_FRONTEND=noninteractive update-alternatives --config iptables'
+	#tcp
 	iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
 	iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+	#udp
+	iptables -I INPUT -p udp -m udp --dport 443 -j ACCEPT
+	iptables -I INPUT -p udp -m udp --dport 80 -j ACCEPT
 	iptables -I OUTPUT -j ACCEPT
+	iptables -I FORWARD -j DROP
+	#tcp6
 	ip6tables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
 	ip6tables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+	#udp6
+	ip6tables -I INPUT -p udp -m udp --dport 443 -j ACCEPT
+	ip6tables -I INPUT -p udp -m udp --dport 80 -j ACCEPT
 	ip6tables -I OUTPUT -j ACCEPT
-	if [[ $dist = centos ]]; then
+	ip6tables -I FORWARD -j DROP
+	if [[ $install_qbt == 1 ]]; then
+		iptables -I INPUT -p tcp -m tcp --dport 8999 -j ACCEPT
+		ip6tables -I INPUT -p tcp -m tcp --dport 8999 -j ACCEPT
+		iptables -I INPUT -p udp -m udp --dport 8999 -j ACCEPT
+		ip6tables -I INPUT -p udp -m udp --dport 8999 -j ACCEPT
+	fi
+	if [[ $install_tracker == 1 ]]; then
+		iptables -I INPUT -p tcp -m tcp --dport 8000 -j ACCEPT
+		ip6tables -I INPUT -p tcp -m tcp --dport 8000 -j ACCEPT
+		iptables -I INPUT -p udp -m udp --dport 8000 -j ACCEPT
+		ip6tables -I INPUT -p udp -m udp --dport 8000 -j ACCEPT
+	fi
+	if [[ $install_aria == 1 ]]; then
+		iptables -I INPUT -p tcp -m tcp --dport $ariaport -j ACCEPT
+		ip6tables -I INPUT -p tcp -m tcp --dport $ariaport -j ACCEPT
+		iptables -I INPUT -p udp -m udp --dport $ariaport -j ACCEPT
+		ip6tables -I INPUT -p udp -m udp --dport $ariaport -j ACCEPT
+	fi
+	if [[ $dist == debian ]]; then
+	export DEBIAN_FRONTEND=noninteractive 
+	apt-get install iptables-persistent -qq -y > /dev/null
+ elif [[ $dist == ubuntu ]]; then
+	export DEBIAN_FRONTEND=noninteractive
+	ufw allow http
+	ufw allow https
+	apt-get install iptables-persistent -qq -y > /dev/null
+ elif [[ $dist == centos ]]; then
 	setenforce 0
 	cat > '/etc/selinux/config' << EOF
 SELINUX=disabled
@@ -1792,16 +1851,10 @@ SELINUXTYPE=targeted
 EOF
 	firewall-cmd --zone=public --add-port=80/tcp --permanent
 	firewall-cmd --zone=public --add-port=443/tcp --permanent
+	firewall-cmd --zone=public --add-port=80/udp --permanent
+	firewall-cmd --zone=public --add-port=443/udp --permanent
 	systemctl stop firewalld
 	systemctl disable firewalld
- elif [[ $dist = ubuntu ]]; then
-	export DEBIAN_FRONTEND=noninteractive
-	ufw allow http
-	ufw allow https
-	apt-get install iptables-persistent -qq -y > /dev/null
- elif [[ $dist = debian ]]; then
-	export DEBIAN_FRONTEND=noninteractive 
-	apt-get install iptables-persistent -qq -y > /dev/null
  else
 	clear
 	TERM=ansi whiptail --title "error can't install iptables-persistent" --infobox "error can't install iptables-persistent" 8 78
@@ -1817,7 +1870,7 @@ rm -rf /etc/nginx/sites-available/*
 rm -rf /etc/nginx/sites-enabled/*
 rm -rf /etc/nginx/conf.d/*
 touch /etc/nginx/conf.d/trojan.conf
-if [[ $install_trojan = 1 ]]; then
+if [[ $install_trojan == 1 ]]; then
 	cat > '/etc/nginx/conf.d/trojan.conf' << EOF
 server {
 	listen 127.0.0.1:80;
@@ -1829,7 +1882,7 @@ server {
 	add_header X-Content-Type-Options "nosniff" always;
 	add_header Referrer-Policy "no-referrer";
 	#add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ssl.google-analytics.com https://assets.zendesk.com https://connect.facebook.net; img-src 'self' https://ssl.google-analytics.com https://s-static.ak.facebook.com https://assets.zendesk.com; style-src 'self' https://fonts.googleapis.com https://assets.zendesk.com; font-src 'self' https://themes.googleusercontent.com; frame-src https://assets.zendesk.com https://www.facebook.com https://s-static.ak.facebook.com https://tautt.zendesk.com; object-src 'none'";
-	add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
+	#add_header Feature-Policy "geolocation none;midi none;notifications none;push none;sync-xhr none;microphone none;camera none;magnetometer none;gyroscope none;speaker self;vibrate none;fullscreen self;payment none;";
 	location / {
 		root /usr/share/nginx/html/;
 			index index.html;
@@ -1978,7 +2031,7 @@ if [[ $install_netdata = 1 ]]; then
 	echo "}" >> /etc/nginx/conf.d/trojan.conf
 fi
 nginx -t
-systemctl restart nginx || true
+systemctl restart nginx
 htmlcode=$(shuf -i 1-3 -n 1)
 curl -LO --progress-bar https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/$htmlcode.zip
 unzip -o $htmlcode.zip -d /usr/share/nginx/html/
@@ -2043,26 +2096,12 @@ sharelink(){
 	set +e
 	cd
 	clear
-		if [[ $install_trojan = 1 ]]; then
-			if [[ $dist = centos ]]; then
-		colorEcho ${ERROR} "QR generate Fail ! Because your os does not support python3-qrcode,Please consider change your os!"
-		elif [[ $(lsb_release -cs) = xenial ]] || [[ $(lsb_release -cs) = trusty ]] || [[ $(lsb_release -cs) = jessie ]]
-		then
-		colorEcho ${ERROR} "QR generate Fail ! Because your os does not support python3-qrcode,Please consider change your os!"
-		else
-		apt-get install python3-qrcode -qq -y > /dev/null
-		wget https://github.com/trojan-gfw/trojan-url/raw/master/trojan-url.py -q
+	if [[ $install_trojan = 1 ]]; then
+		curl -LO --progress-bar https://github.com/trojan-gfw/trojan-url/raw/master/trojan-url.py
 		chmod +x trojan-url.py
-		#./trojan-url.py -i /etc/trojan/client.json
-		./trojan-url.py -q -i /usr/share/nginx/html/client1-$password1.json -o $password1.png
-		./trojan-url.py -q -i /usr/share/nginx/html/client2-$password2.json -o $password2.png
-		cp $password1.png /usr/share/nginx/html/
-		cp $password2.png /usr/share/nginx/html/
+		./trojan-url.py -q -i /usr/share/nginx/html/client1-$password1.json -o /usr/share/nginx/html/$password1.png
+		./trojan-url.py -q -i /usr/share/nginx/html/client2-$password2.json -o /usr/share/nginx/html/$password2.png
 		rm -rf trojan-url.py
-		rm -rf $password1.png
-		rm -rf $password2.png
-		apt-get remove python3-qrcode -qq -y > /dev/null
-		fi
 	fi
 	cat > "/usr/share/nginx/html/result.html" << EOF
 <!DOCTYPE html>
@@ -2242,6 +2281,7 @@ footer a:link {
                     <p>一。 Trojan-GFW 客户端(client) 配置文件(config profiles)</p>
                     <p>1. <a href="client1-$password1.json" target="_blank">Profile 1</a></p>
                     <p>2. <a href="client2-$password2.json" target="_blank">Profile 2</a></p>
+                    <p>3. <a href="clientv6-$password1.json" target="_blank">IPV6 Profile</a>(only click this when your server has a ipv6 address,or 404 will occur!)</p>
                     <p>二。 Trojan-GFW 分享链接(Share Links) are</p>
                     <p>1. trojan://$password1@$domain:443</p>
                     <p>2. trojan://$password2@$domain:443</p>
@@ -2259,9 +2299,8 @@ footer a:link {
                     <p>你的Qbittorrent信息(Your Qbittorrent Information)</p>
                     <p><a href="https://$domain$qbtpath" target="_blank">https://$domain$qbtpath</a> 用户名(username): admin 密碼(password): adminadmin</p>
                     <p>Tips:</p>
-                    <p>1. 请将Qbittorrent下载目录改为 /usr/share/nginx/qbt/ ！！！否则拉回本地将不起作用！！！</p>
-                    <p>2. 请将Qbittorrent中的Bittorrent加密選項改为 強制加密(Require encryption) ！！！否则會被迅雷吸血！！！</p>
-                    <p>3. 请在Qbittorrent中添加Trackers <a href="https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt" target="_blank">https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt</a> ！！！否则速度不會快的！！！</p>
+                    <p>1. 请将Qbittorrent中的Bittorrent加密選項改为 強制加密(Require encryption) ！！！否则會被迅雷吸血！！！</p>
+                    <p>2. 请在Qbittorrent中添加Trackers <a href="https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt" target="_blank">https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt</a> ！！！否则速度不會快的！！！</p>
                     <p>附：优秀的BT站点推荐(Related Links)</p>
                     <p><a href="https://thepiratebay.org/" target="_blank">https://thepiratebay.org/</a></p>
                     <p><a href="https://sukebei.nyaa.si/" target="_blank">https://sukebei.nyaa.si/</a></p>
@@ -2291,6 +2330,7 @@ footer a:link {
                     <p>相关链接（Related Links)</p>
                     <p><a href="https://github.com/mayswind/AriaNg/releases" target="_blank">Aria客户端(远程操控)</a></p>
                     <p><a href="https://github.com/aria2/aria2" target="_blank">https://github.com/aria2/aria2</a></p>
+                    <p><a href="https://aria2.github.io/manual/en/html/index.html" target="_blank">https://aria2.github.io/manual/en/html/index.html</a>官方文档</p>
                     <p><a href="https://play.google.com/store/apps/details?id=com.gianlu.aria2app" target="_blank">https://play.google.com/store/apps/details?id=com.gianlu.aria2app</a></p>
                     <h2>Filebrowser</h2>
                     <p>你的Filebrowser信息，非分享链接，仅供参考(Your Filebrowser Information)</p>
@@ -2324,7 +2364,7 @@ footer a:link {
                 </div>
             </article>
             <footer>
-                <p><a href="https://github.com/johnrosen1/trojan-gfw-script">VPS Toolbox</a> Copyright &copy; 2020, Johnrosen</p>
+                <p><a href="https://github.com/johnrosen1/trojan-gfw-script">VPS Toolbox</a> Copyright &copy; 2020 Johnrosen</p>
             </footer>
         </div>
     </div>
@@ -2419,7 +2459,7 @@ EOF
 }
 EOF
 	apt-get update
-	systemctl daemon-reload || true
+	systemctl daemon-reload
 	colorEcho ${INFO} "卸载完成"
 }
 ###########Status#################
@@ -2529,6 +2569,7 @@ statuscheck(){
 }
 ##################################
 autoupdate(){
+	set +e
 	if [[ $install_trojan == 1 ]]; then
 cat > '/root/.trojan/autoupdate.sh' << EOF
 #!/bin/bash
@@ -2559,19 +2600,24 @@ logcheck(){
 	set +e
 	readconfig
 	clear
-	if [[ $install_trojan == 1 ]]; then
+	if [[ -f /usr/local/bin/trojan ]]; then
 		colorEcho ${INFO} "Trojan Log"
-		journalctl -a -u trojan.service
-		cat /root/.trojan/update.log
+		#journalctl -a -u trojan.service
+		less /var/log/trojan.log
+		less /root/.trojan/update.log
 	fi
-	if [[ $dnsmasq_install == 1 ]]; then
+	if [[ -f /usr/sbin/dnscrypt-proxy ]]; then
 		colorEcho ${INFO} "dnscrypt-proxy Log"
-		cat /var/log/dnscrypt-proxy.log
-		cat /var/log/query.log
+		less /var/log/dnscrypt-proxy/dnscrypt-proxy.log
+		less /var/log/dnscrypt-proxy/query.log
+	fi
+	if [[ -f /usr/local/bin/aria2c ]]; then
+		colorEcho ${INFO} "Aria2 Log"
+		less /var/log/aria2.log
 	fi
 	colorEcho ${INFO} "Nginx Log"
-	cat /var/log/nginx/error.log
-	cat /var/log/nginx/access.log
+	less /var/log/nginx/error.log
+	less /var/log/nginx/access.log
 }
 ##################################
 bandwithusage(){
@@ -2604,23 +2650,25 @@ advancedMenu() {
 		bootstart
 		start
 		sharelink
-		rm results || true
+		rm results
 		prasejson
 		autoupdate
+		if [[ $dist != centos ]]; then
+			apt-get purge dnsutils python-pil socat python3-qrcode -q -y
+			apt-get autoremove -y
+		fi
 		if [[ $dnsmasq_install -eq 1 ]]; then
 			if [[ $dist = ubuntu ]]; then
-	 			systemctl stop systemd-resolved || true
-	 			systemctl disable systemd-resolved || true
+	 			systemctl stop systemd-resolved
+	 			systemctl disable systemd-resolved
  			fi
 			if [[ $(systemctl is-active dnsmasq) == active ]]; then
-				systemctl disable dnsmasq
 				systemctl stop dnsmasq
 			fi
-		rm /etc/resolv.conf || true
-		touch /etc/resolv.conf || true
-		echo "nameserver 127.0.0.1" > '/etc/resolv.conf' || true
-		systemctl start dnscrypt-proxy || true
-		systemctl enable dnscrypt-proxy || true
+		rm /etc/resolv.conf
+		touch /etc/resolv.conf
+		echo "nameserver 127.0.0.1" > '/etc/resolv.conf'
+		systemctl start dnscrypt-proxy
 		fi
 		if [[ $password1 == "" ]]; then
 		password1=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 20 ; echo '' )
@@ -2633,8 +2681,8 @@ advancedMenu() {
 		else
 		echo "***************************************************************************************" >> /etc/motd
 		echo "*                                   Pay attention!                                    *" >> /etc/motd
-		echo "*     请访问下面的链接获取结果(Please visit the following link to get the result)       *" >> /etc/motd
-		echo "*                       https://$domain/$password1.html         *" >> /etc/motd
+		echo "*     请访问下面的链接获取结果(Please visit the following link to get the result)     *" >> /etc/motd
+		echo "*                       https://$domain/$password1.html            *" >> /etc/motd
 		echo "*           若访问失败，请运行以下两行命令自行检测服务是否正常:active(running)为正常  *" >> /etc/motd
 		echo "*                       sudo systemctl status trojan                                  *" >> /etc/motd
 		echo "*                       sudo systemctl status nginx                                   *" >> /etc/motd
@@ -2642,21 +2690,25 @@ advancedMenu() {
 		fi
 		echo "请访问下面的链接获取结果(Please visit the following link to get the result)" > /root/.trojan/result.txt
 		echo "https://$domain/$password1.html" >> /root/.trojan/result.txt
-		#whiptail --title "Install Success" --textbox --scrolltext /root/.trojan/result.txt 8 120
 		if [[ $install_bbrplus = 1 ]]; then
 		bash -c "$(curl -fsSL https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh)"
 		fi
+		clear
+		cat /root/.trojan/result.txt
 		if (whiptail --title "Reboot" --yesno "安装成功(success)！ 重启 (reboot) 使配置生效,重新SSH连接后将自动出现结果 (to make the configuration effective)?" 8 78); then
+		clear
 		reboot
 		fi
 		;;
 		2)
 		cd
 		whiptail --title "Install Success" --textbox --scrolltext /root/.trojan/result.txt 8 120
+		advancedMenu
 		;;
 		3)
 		cd
 		logcheck
+		advancedMenu
 		;;
 		4)
 		cd
@@ -2683,21 +2735,12 @@ advancedMenu() {
 		esac
 }
 cd
-system_upgrade=0
-install_bbr=0
-install_bbrplus=0
-install_trojan=0
-dnsmasq_install=0
-install_tor=0
-install_qbt=0
-install_tracker=0
-install_aria=0
-install_file=0
-install_netdata=0
-tls13only=0
 osdist
 setlanguage
-license="$( jq -r '.license' "/root/.trojan/license.json" )"
+if [[ -f /root/.trojan/license.json ]]; then
+	license="$( jq -r '.license' "/root/.trojan/license.json" )"
+fi
+
 if [[ $license != 1 ]]; then
 if (whiptail --title "Accept LICENSE?" --yesno "已阅读并接受MIT License(Please read and accept the MIT License)? https://github.com/johnrosen1/trojan-gfw-script/blob/master/LICENSE" 8 78); then
 	cat > '/root/.trojan/license.json' << EOF
