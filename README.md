@@ -1,6 +1,6 @@
 ![logo](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/logo.png)
 # VPS Toolbox
-# [中文文檔](https://github.com/johnrosen1/trojan-gfw-script/blob/master/README_CN.md)
+[中文文檔](https://github.com/johnrosen1/trojan-gfw-script/blob/master/README_CN.md)
 ## This script will help you set up many kind of useful tools on your VPS including website proxy download monitor and more.
 
 ### How to use
@@ -18,6 +18,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/johnrosen1/trojan-g
 ```
 ![menu](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/mainmenu.png)
 ![choose](https://raw.githubusercontent.com/johnrosen1/trojan-gfw-script/master/3.png)
+![flowchart](https://raw.githubusercontent.com/jerrypoma/trojan-gfw-script/master/vpstoolbox.png)
 
 #### Friendly Reminder:
 1. Please **Run as root**(sudo -i)
@@ -41,7 +42,7 @@ echo "nameserver 1.1.1.1" > '/etc/resolv.conf'
 
 1. Auto install and config **[NGINX](https://www.nginx.com/)**
 3. Auto issue renew [let's encrypt certificate](https://letsencrypt.org/) and **auto reload Trojan-GFW after renewal**
-4. Auto OS Detect **Support [Debian](https://www.debian.org/) [Ubuntu](https://ubuntu.com/) Centos**
+4. Auto OS Detect **Support [Debian](https://www.debian.org/) [Ubuntu](https://ubuntu.com/) Centos(not recommended)**
 5. Auto [domain resolve verification](https://en.wikipedia.org/wiki/Nslookup)
 6. Auto [iptables](https://en.wikipedia.org/wiki/Iptables)(includes ipv6) firewall config and [iptables-persistent](https://github.com/zertrin/iptables-persistent)
 7. Auto generate Trojan-GFW [client config](https://trojan-gfw.github.io/trojan/config) 
