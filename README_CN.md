@@ -22,18 +22,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/johnrosen1/trojan-g
 1. 請 **使用root用戶運行**(sudo -i)
 2. 請在运行本脚本前先 **[购买一个域名](https://www.namesilo.com/?rid=685fb47qi)** 并 **[完成A记录 dns解析](https://dnschecker.org/)**!
 3. 請在你的控制面板上 **開放 Tcp 端口 [80](https://www.speedguide.net/port.php?port=80) 以及 [443](https://www.speedguide.net/port.php?port=443) 并关闭 Cloudflare CDN**
-4. 請不要使用阿里內網DNS(更新極其緩慢) 推薦[1.1.1.1](https://1.1.1.1/) !
-```
-echo "nameserver 1.1.1.1" > '/etc/resolv.conf'
-```
-
-5. 若使用自定义证书只需与密钥一起放置于/etc/trojan文件夹中即可，无需修改名称 。
-
-#### [Telegram](https://telegram.org/) 頻道 以及 群組
-
-### https://t.me/johnrosen1
-
-### https://t.me/trojanscript
+4. 若使用自定义证书只需与密钥一起放置于/etc/trojan文件夹中即可，无需修改名称 。
 
 ## 如果你覺得有用 , 請給star ★, 謝謝!
 #### 脚本特性支援:
@@ -59,6 +48,7 @@ echo "nameserver 1.1.1.1" > '/etc/resolv.conf'
 21. ***[TLS1.3 ONLY](https://wiki.openssl.org/index.php/TLS1.3)***
 22. 手动 检查更新
 23. 完全/部分 卸載
+24. 更多懒得写了...
 
 **如果你需要更多功能, 请 open a Github issue / 提交pull request.(Centos相关issue将被列为低优先级)**
 
@@ -101,5 +91,9 @@ sudo ~/.acme.sh/acme.sh --cron //仅当使用let's encrypt证书是有效
 timedatectl
 iptables -L -v
 ```
+#### [Telegram](https://telegram.org/) 頻道 以及 群組
 
+### https://t.me/johnrosen1
+
+### https://t.me/trojanscript
 
